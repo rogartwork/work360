@@ -2,22 +2,23 @@ version: '3.8'
 
 services:
   nexus-hub:
-    build: .
-    container_name: nexus-hub
-    restart: on-failure
-    ports:
-      - "3001:3001"
+    # A imagem será puxada diretamente do seu Github Container Registry (GHCR) pós-build automático
+    image: ghcr.io/rogartwork/nexus-hub:latest
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nexus-hub.rule=Host(`nexushub.workmanos.com.br`)"
+        - "traefik.http.services.nexus-hub.loadbalancer.server.port=3001"
+        - "traefik.http.routers.nexus-hub.entrypoints=websecure"
+        - "traefik.http.routers.nexus-hub.tls.certresolver=letsencrypt"
     environment:
       - DATABASE_URL=file:/app/prisma/hub.db
     volumes:
       - nexus-hub-db:/app/prisma
       - x360-database:/x360-db:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nexus-hub.rule=Host(`nexushub.workmanos.com.br`)"
-      - "traefik.http.services.nexus-hub.loadbalancer.server.port=3001"
-      - "traefik.http.routers.nexus-hub.entrypoints=websecure"
-      - "traefik.http.routers.nexus-hub.tls.certresolver=letsencrypt"
 
 volumes:
   nexus-hub-db:
