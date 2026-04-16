@@ -32,6 +32,18 @@ export async function GET() {
         url: 'file:' + activePath,
         isActive: true
       } as any];
+    } else if (targets.length === 0) {
+      // DEBUG: Se não achou nada, lista o que tem na pasta para o usuário me avisar
+      try {
+        const files = fs.readdirSync('/x360-data', { recursive: true });
+        return NextResponse.json({ 
+          error: "Nenhum banco encontrado nos caminhos padrões.",
+          debug_files_found: files,
+          checked_paths: dbPaths
+        }, { status: 404 });
+      } catch (e: any) {
+        return NextResponse.json({ error: "Pasta /x360-data não acessível ou vazia: " + e.message }, { status: 404 });
+      }
     }
 
     for (const target of targets) {
