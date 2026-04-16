@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  nexus-hub:
+    build: .
+    container_name: nexus-hub
+    restart: on-failure
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=file:/app/prisma/hub.db
+    volumes:
+      # Volume do próprio Nexus HUB (onde ele guarda suas configs e lista de TargetDatabases)
+      - nexus-hub-db:/app/prisma
+      
+      # Mapeamento do Volume do X360C em Produção (O segredo da estratégia!)
+      # No caso, usamos o nome do volume externo que o X360C já usa.
+      - x360-database:/x360-db:ro
+
+volumes:
+  # Volume interno do arquivo de configurações do Hub
+  nexus-hub-db:
+    driver: local
+
+  # Volume Externo - Conecta ao volume já existente no X360C
+  x360-database:
+    external: true

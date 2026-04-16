@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TargetDatabase {
+  id        String   @id @default(cuid())
+  name      String   @unique // ex: "X360C Local", "X360C VPS"
+  url       String   // Caminho do arquivo dev.db ou URL do MySQL/Postgres
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
