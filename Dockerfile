@@ -1,49 +1,36 @@
 FROM node:20-alpine AS base
-
-# Dependências para compilação do SQLite3
-RUN apk add --no-cache python3 make g++ 
-
-FROM base AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+RUN apk add --no-cache openssl python3 make g++
 
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+RUN npm install
 COPY . .
-
-# Gera o Prisma client
 RUN npx prisma generate
-
-# Builda a aplicação Next.js
-ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
-
-# Pastas de deploy standalone do Next
+# Copiar tudo que o Next standalone e o Prisma precisam
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./package.json
 
-# Garantir permissão de escrita para o usuário nextjs na pasta de dados
-USER root
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+# No modo standalone do Next 14, pasta node_modules é parcial dentro do standalone, 
+# mas para rodar npx prisma precisamos do node_modules original ou devDeps.
+# Vamos copiar os node_modules para garantir o prisma cli.
+COPY --from=builder /app/node_modules ./node_modules
+
+RUN mkdir -p /app/data
 
 EXPOSE 3001
-
 ENV PORT 3001
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+# Sincroniza o banco e inicia
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node server.js"]

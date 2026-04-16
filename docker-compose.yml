@@ -2,27 +2,36 @@ version: '3.8'
 
 services:
   nexus-hub:
-    # A imagem será puxada diretamente do seu Github Container Registry (GHCR) pós-build automático
     image: ghcr.io/rogartwork/nexus-hub:latest
+    environment:
+      - DATABASE_URL=file:/app/data/hub.db
+    volumes:
+      - nexus-hub-db:/app/data
+      # Volume compartilhado com o X360C para leitura direta
+      - x360-data:/x360-data:ro
+    networks:
+      - rogartwork
     deploy:
       replicas: 1
       restart_policy:
         condition: on-failure
       labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.nexus-hub.rule=Host(`nexushub.workmanos.com.br`)"
-        - "traefik.http.services.nexus-hub.loadbalancer.server.port=3001"
-        - "traefik.http.routers.nexus-hub.entrypoints=websecure"
-        - "traefik.http.routers.nexus-hub.tls.certresolver=letsencrypt"
-    environment:
-      - DATABASE_URL=file:/app/prisma/hub.db
-    volumes:
-      - nexus-hub-db:/app/prisma
-      - x360-database:/x360-db:ro
+        - traefik.enable=true
+        - traefik.http.routers.nexus-hub.rule=Host(`nexushub.workmanos.com.br`)
+        - traefik.http.routers.nexus-hub.entrypoints=websecure
+        - traefik.http.routers.nexus-hub.priority=1
+        - traefik.http.routers.nexus-hub.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.nexus-hub.service=nexus-hub
+        - traefik.http.services.nexus-hub.loadbalancer.server.port=3001
+        - traefik.http.services.nexus-hub.loadbalancer.passHostHeader=1
 
 volumes:
   nexus-hub-db:
     driver: local
 
-  x360-database:
+  x360-data:
+    external: true
+
+networks:
+  rogartwork:
     external: true
