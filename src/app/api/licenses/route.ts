@@ -11,8 +11,11 @@ export async function GET() {
     // Auto-deteção para VPS: Procura em múltiplos caminhos possíveis de volumes mapeados
     const fs = require('fs');
     const dbPaths = [
+      '/x360-data/prod.db',
       '/x360-data/dev.db',
+      '/x360-data/prisma/prod.db',
       '/x360-data/prisma/dev.db',
+      '/x360-data/data/prod.db',
       '/x360-data/data/dev.db'
     ];
     
@@ -35,10 +38,12 @@ export async function GET() {
     } else if (targets.length === 0) {
       // DEBUG: Se não achou nada, lista o que tem na pasta para o usuário me avisar
       try {
-        const files = fs.readdirSync('/x360-data', { recursive: true });
+        const files = fs.readdirSync('/x360-data');
+        const deepFiles = fs.readdirSync('/x360-data', { recursive: true }).slice(0, 50);
         return NextResponse.json({ 
-          error: "Nenhum banco encontrado nos caminhos padrões.",
-          debug_files_found: files,
+          error: "Nenhum banco (prod.db ou dev.db) encontrado nos volumes.",
+          files_at_root: files,
+          files_recursive_sample: deepFiles,
           checked_paths: dbPaths
         }, { status: 404 });
       } catch (e: any) {
