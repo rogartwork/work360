@@ -33,9 +33,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
 # Pastas de deploy standalone do Next
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
+# Garantir permissão de escrita para o usuário nextjs na pasta de dados
+USER root
+RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 EXPOSE 3001
