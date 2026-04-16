@@ -5,13 +5,34 @@ import { open } from "sqlite";
 
 export async function GET() {
   try {
-    const targets = await prisma.targetDatabase.findMany({ where: { isActive: true } });
+    let targets = await prisma.targetDatabase.findMany({ where: { isActive: true } });
     const allLicenses = [];
+
+    // Auto-deteção para VPS: Se não houver alvos e o arquivo do volume existir, adiciona temporariamente
+    const fs = require('fs');
+    const vpsDbPath = '/x360-data/dev.db';
+    
+    if (targets.length === 0 && fs.existsSync(vpsDbPath)) {
+      console.log("Detectado banco de dados X360C via Volume Docker (VPS)");
+      targets = [{
+        id: 'vps-auto',
+        name: 'X360C Produção (VPS)',
+        url: 'file:' + vpsDbPath,
+        isActive: true
+      } as any];
+    }
 
     for (const target of targets) {
       try {
         if (target.url.startsWith("file:")) {
-          const dbPath = target.url.replace("file:///", "").replace("file:", "");
+          // Ajuste para caminhos Linux/Windows
+          const dbPath = target.url.replace("file:///", "/").replace("file:", "");
+          
+          if (!fs.existsSync(dbPath)) {
+            console.warn(`Arquivo não encontrado no caminho: ${dbPath}`);
+            continue;
+          }
+
           const db = await open({
             filename: dbPath,
             driver: sqlite3.Database
