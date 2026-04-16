@@ -8,16 +8,28 @@ export async function GET() {
     let targets = await prisma.targetDatabase.findMany({ where: { isActive: true } });
     const allLicenses = [];
 
-    // Auto-deteção para VPS: Se não houver alvos e o arquivo do volume existir, adiciona temporariamente
+    // Auto-deteção para VPS: Procura em múltiplos caminhos possíveis de volumes mapeados
     const fs = require('fs');
-    const vpsDbPath = '/x360-data/dev.db';
+    const dbPaths = [
+      '/x360-data/dev.db',
+      '/x360-data/prisma/dev.db',
+      '/x360-data/data/dev.db'
+    ];
     
-    if (targets.length === 0 && fs.existsSync(vpsDbPath)) {
-      console.log("Detectado banco de dados X360C via Volume Docker (VPS)");
+    let activePath = null;
+    for (const p of dbPaths) {
+      if (fs.existsSync(p)) {
+        activePath = p;
+        break;
+      }
+    }
+    
+    if (targets.length === 0 && activePath) {
+      console.log("Detectado banco de dados X360C em:", activePath);
       targets = [{
         id: 'vps-auto',
         name: 'X360C Produção (VPS)',
-        url: 'file:' + vpsDbPath,
+        url: 'file:' + activePath,
         isActive: true
       } as any];
     }
