@@ -75,6 +75,58 @@ export async function GET() {
       }
     }
 
+    // SIMULATION MODE: Inject mock data if no real data found in development
+    if (allLicenses.length === 0 && process.env.NODE_ENV === 'development') {
+      const mockLicenses = [
+        {
+          sourceDbId: 'sim-01',
+          sourceName: 'SIMULADOR ALFA',
+          id: 'user-001',
+          name: 'ROGERIO (SIMULADO)',
+          role: 'ADMIN',
+          maxSessions: 10,
+          expiresAt: new Date(Date.now() + 86400000 * 30).toISOString(),
+          isActive: true,
+          plan: 'GOLD',
+          chipsConfigured: 8,
+          chipsOnline: 6,
+          serverIp: '192.168.1.100',
+          isSimulated: true
+        },
+        {
+          sourceDbId: 'sim-01',
+          sourceName: 'SIMULADOR ALFA',
+          id: 'user-002',
+          name: 'CLIENTE BETA',
+          role: 'USER',
+          maxSessions: 5,
+          expiresAt: new Date(Date.now() + 86400000 * 2).toISOString(),
+          isActive: true,
+          plan: 'SILVER',
+          chipsConfigured: 4,
+          chipsOnline: 1,
+          serverIp: '192.168.1.101',
+          isSimulated: true
+        },
+        {
+          sourceDbId: 'sim-02',
+          sourceName: 'SIMULADOR GAMA',
+          id: 'user-003',
+          name: 'CONTA EXPIRADA',
+          role: 'USER',
+          maxSessions: 2,
+          expiresAt: new Date(Date.now() - 86400000).toISOString(),
+          isActive: false,
+          plan: 'BASIC',
+          chipsConfigured: 2,
+          chipsOnline: 0,
+          serverIp: '10.0.0.5',
+          isSimulated: true
+        }
+      ];
+      return NextResponse.json(mockLicenses);
+    }
+
     return NextResponse.json(allLicenses);
   } catch (error: any) {
     console.error("ERRO:", error.message);
