@@ -7,8 +7,8 @@ services:
       - DATABASE_URL=file:/app/data/hub.db
     volumes:
       - nexus-hub-db:/app/data
-      # Volume compartilhado com o X360C para leitura direta
-      - x360-data:/x360-data:ro
+      # Agora conectando no volume real da stack gs360
+      - gs360_x360-data:/x360-data:ro
     networks:
       - rogartwork
     deploy:
@@ -29,7 +29,8 @@ volumes:
   nexus-hub-db:
     driver: local
 
-  x360-data:
+  # Mapeamento do volume externo com o nome real do Swarm
+  gs360_x360-data:
     external: true
 
 networks:
