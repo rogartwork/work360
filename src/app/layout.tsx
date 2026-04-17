@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEXUS HUB | Monitoramento",
-  description: "Central de monitoramento de licenças e chips NEXUS",
+  title: "NEXUS HUB | Inteligência Central",
+  description: "Monitoramento de alta performance para WhatsApp e Licenças NEXUS",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

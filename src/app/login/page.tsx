@@ -67,7 +67,7 @@ export default function LoginPage() {
         <div className="text-center mb-10 animate-in fade-in zoom-in duration-700">
            <div className="relative inline-block group">
               <img 
-                src="/logo.png" 
+                src="/logo.svg" 
                 alt="Nexus Hub" 
                 className="h-24 w-auto object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-transform duration-500 group-hover:scale-110" 
               />

@@ -21,9 +21,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 
-# No modo standalone do Next 14, pasta node_modules é parcial dentro do standalone, 
-# mas para rodar npx prisma precisamos do node_modules original ou devDeps.
-# Vamos copiar os node_modules para garantir o prisma cli.
+# No modo standalone do Next 14+, pasta node_modules é parcial dentro do standalone, 
+# mas para rodar npx prisma ou o seed precisamos do node_modules original ou devDeps.
 COPY --from=builder /app/node_modules ./node_modules
 
 RUN mkdir -p /app/data
@@ -32,5 +31,5 @@ EXPOSE 3001
 ENV PORT 3001
 ENV HOSTNAME "0.0.0.0"
 
-# Sincroniza o banco e inicia
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node server.js"]
+# Sincroniza o banco, cadastra o admin padrão e inicia o servidor
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node prisma/seed-admin.js && node server.js"]

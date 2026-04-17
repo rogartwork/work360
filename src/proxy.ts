@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "./lib/session";
-import { cookies } from "next/headers";
 
 export async function proxy(req: NextRequest) {
   const res = NextResponse.next();
-  const session = await getIronSession<{ isLoggedIn: boolean }>(await cookies(), sessionOptions);
+  const session = await getIronSession<{ isLoggedIn: boolean }>(req, res, sessionOptions);
 
   const { pathname } = req.nextUrl;
 

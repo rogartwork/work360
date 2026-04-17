@@ -116,7 +116,7 @@ export default function HubDashboard() {
           <div className="flex items-center gap-6">
             <div className="relative group">
               <img
-                src="/logo.png"
+                src="/logo.svg"
                 alt="Nexus Hub Logo"
                 className="h-16 w-auto object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-transform duration-500 group-hover:scale-105"
               />
