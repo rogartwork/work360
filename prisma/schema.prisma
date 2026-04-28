@@ -23,3 +23,21 @@ model Admin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ============================================================
+// Licenças do NEXUS 360 Desktop
+// ============================================================
+model DesktopLicense {
+  id         String    @id @default(cuid())
+  key        String    @unique // Ex: NEXUS-XXXX-XXXX-XXXX
+  clientName String    // Nome do cliente
+  email      String?   // E-mail do cliente
+  plan       String    @default("STANDARD") // STANDARD, PRO, UNLIMITED
+  machineId  String?   // Hash da máquina onde foi ativada
+  isActive   Boolean   @default(true)
+  expiresAt  DateTime? // null = vitalício
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSeenAt DateTime? // Última validação online
+  notes      String?   // Observações internas
+}
