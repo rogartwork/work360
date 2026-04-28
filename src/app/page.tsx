@@ -16,9 +16,12 @@ import {
   LucideCpu,
   LucideAlertCircle,
   LucideLayoutGrid,
-  LucideList
+  LucideList,
+  LucideGlobe,
+  LucideMonitorSmartphone
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import DesktopLicensesView from "./DesktopLicensesView";
 
 interface License {
   sourceDbId: string;
@@ -65,6 +68,7 @@ export default function HubDashboard() {
   const [intervalMs, setIntervalMs] = useState(60000);
   const [showIntervalPicker, setShowIntervalPicker] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [activeTab, setActiveTab] = useState<'web' | 'desktop'>('web');
   const router = useRouter();
 
   const isSimulated = licenses.some(l => l.isSimulated);
@@ -200,8 +204,26 @@ export default function HubDashboard() {
           </div>
         </header>
 
-        {/* METRICS HUD */}
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* TABS MENU */}
+        <div className="flex gap-4 mb-8 border-b border-white/5 pb-2">
+          <button
+            onClick={() => setActiveTab('web')}
+            className={`flex items-center gap-2 pb-2 border-b-2 transition-all ${activeTab === 'web' ? 'border-blue-500 text-blue-400 font-bold glow-text' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+          >
+            <LucideGlobe size={18} /> Licenças Web (SaaS)
+          </button>
+          <button
+            onClick={() => setActiveTab('desktop')}
+            className={`flex items-center gap-2 pb-2 border-b-2 transition-all ${activeTab === 'desktop' ? 'border-emerald-500 text-emerald-400 font-bold glow-text' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+          >
+            <LucideMonitorSmartphone size={18} /> Licenças Desktop
+          </button>
+        </div>
+
+        {activeTab === 'web' ? (
+          <>
+            {/* METRICS HUD */}
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {[
             { label: "LICENÇAS", val: licenses.length, icon: LucideShieldCheck, color: "text-blue-400" },
             { label: "CHIPS ATIVOS", val: licenses.reduce((acc, l) => acc + l.chipsOnline, 0), icon: LucideSmartphone, color: "text-emerald-400" },
@@ -361,6 +383,10 @@ export default function HubDashboard() {
             </div>
           )}
         </section>
+        </>
+        ) : (
+          <DesktopLicensesView />
+        )}
 
         {/* FOOTER BAR */}
         <footer className="mt-12 flex flex-col md:flex-row items-center justify-between gap-6 py-8 border-t border-white/[0.05]">
