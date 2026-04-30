@@ -14,7 +14,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.includes("_next") ||
     pathname.includes("favicon.ico") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/license")
   ) {
     return res;
   }

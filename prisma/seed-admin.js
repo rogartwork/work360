@@ -8,19 +8,24 @@ async function main() {
   const password = 'admin_password_2024'; // Você pode mudar isso depois
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const existing = await prisma.admin.findUnique({
+  const existing = await prisma.user.findUnique({
     where: { username }
   });
 
   if (existing) {
-    console.log('Usuário admin já existe.');
+    console.log('Usuário admin já existe. Atualizando permissões...');
+    await prisma.user.update({
+      where: { username },
+      data: { role: 'ADMIN' }
+    });
     return;
   }
 
-  await prisma.admin.create({
+  await prisma.user.create({
     data: {
       username,
-      password: hashedPassword
+      password: hashedPassword,
+      role: 'ADMIN'
     }
   });
 

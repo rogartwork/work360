@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 
 export interface SessionData {
   userId?: string;
+  role?: string;
+  username?: string;
   isLoggedIn: boolean;
 }
 

@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Preencha todos os campos" }, { status: 400 });
     }
 
-    const admin = await prisma.admin.findUnique({
+    const admin = await prisma.user.findUnique({
       where: { username }
     });
 
@@ -27,6 +27,8 @@ export async function POST(req: Request) {
 
     const session = await getSession();
     session.userId = admin.id;
+    session.role = admin.role;
+    session.username = admin.username;
     session.isLoggedIn = true;
     await session.save();
 

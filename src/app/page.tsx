@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import DesktopLicensesView from "./DesktopLicensesView";
+import UsersView from "./UsersView";
 
 interface License {
   sourceDbId: string;
@@ -68,7 +69,8 @@ export default function HubDashboard() {
   const [intervalMs, setIntervalMs] = useState(60000);
   const [showIntervalPicker, setShowIntervalPicker] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [activeTab, setActiveTab] = useState<'web' | 'desktop'>('web');
+  const [activeTab, setActiveTab] = useState<'web' | 'desktop' | 'users'>('web');
+  const [userRole, setUserRole] = useState<string>('USER');
   const router = useRouter();
 
   const isSimulated = licenses.some(l => l.isSimulated);
@@ -98,7 +100,20 @@ export default function HubDashboard() {
     }
   }, []);
 
+  const fetchSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/session");
+      if (res.ok) {
+        const data = await res.json();
+        setUserRole(data.role);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
+    fetchSession();
     fetchLicenses();
     const timer = setInterval(fetchLicenses, intervalMs);
     return () => clearInterval(timer);
@@ -120,7 +135,7 @@ export default function HubDashboard() {
           <div className="flex items-center gap-6">
             <div className="relative group">
               <img
-                src="/logo.svg"
+                src="/logo.png"
                 alt="Nexus Hub Logo"
                 className="h-16 w-auto object-contain drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-transform duration-500 group-hover:scale-105"
               />
@@ -218,6 +233,14 @@ export default function HubDashboard() {
           >
             <LucideMonitorSmartphone size={18} /> Licenças Desktop
           </button>
+          {userRole === 'ADMIN' && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-2 pb-2 border-b-2 transition-all ${activeTab === 'users' ? 'border-amber-500 text-amber-400 font-bold glow-text' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+            >
+              <LucideShieldCheck size={18} /> Gestão de Acessos
+            </button>
+          )}
         </div>
 
         {activeTab === 'web' ? (
@@ -384,8 +407,10 @@ export default function HubDashboard() {
           )}
         </section>
         </>
-        ) : (
+        ) : activeTab === 'desktop' ? (
           <DesktopLicensesView />
+        ) : (
+          <UsersView />
         )}
 
         {/* FOOTER BAR */}

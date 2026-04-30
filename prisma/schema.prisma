@@ -16,12 +16,15 @@ model TargetDatabase {
   updatedAt DateTime @updatedAt
 }
 
-model Admin {
+model User {
   id        String   @id @default(cuid())
   username  String   @unique
   password  String   // Hash da senha
+  role      String   @default("USER") // ADMIN ou USER
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@map("Admin")
 }
 
 // ============================================================
