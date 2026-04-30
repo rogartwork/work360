@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
     if (!session.isLoggedIn || session.role !== 'ADMIN') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const targetUserId = params.id;
+    const { id: targetUserId } = await params;
 
     if (session.userId === targetUserId) {
       return NextResponse.json({ error: "Você não pode excluir seu próprio usuário" }, { status: 400 });
