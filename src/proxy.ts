@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getIronSession } from "iron-session";
-import { sessionOptions } from "./lib/session";
 
-export async function proxy(req: NextRequest) {
-  const res = NextResponse.next();
-  const session = await getIronSession<{ isLoggedIn: boolean }>(req, res, sessionOptions);
-
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Permitir acesso à página de login e assets públicos
@@ -17,22 +12,24 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/license")
   ) {
-    return res;
+    return NextResponse.next();
   }
 
-  // Se não estiver logado e tentar acessar qualquer outra página, redireciona para login
-  if (!session.isLoggedIn) {
+  // Verificar se o cookie de sessão existe
+  const sessionCookie = req.cookies.get("nexus_hub_session");
+
+  // Se não estiver logado, redireciona para login
+  if (!sessionCookie) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  return res;
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
