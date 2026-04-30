@@ -14,8 +14,8 @@ function generateLicenseKey(): string {
  * Lista todas as licenças Desktop
  */
 export async function GET(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const session = await getSession();
+  if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   const licenses = await prisma.desktopLicense.findMany({
     orderBy: { createdAt: 'desc' },
@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
  * Cria uma nova licença Desktop
  */
 export async function POST(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const session = await getSession();
+  if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   try {
     const { clientName, email, plan, expiresAt, notes } = await req.json();

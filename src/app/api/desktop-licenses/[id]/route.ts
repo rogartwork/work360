@@ -7,8 +7,8 @@ import { getSession } from '@/lib/session';
  * Atualiza uma licença (ativar/desativar, alterar dados)
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const session = await getSession();
+  if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   const { id } = await params;
   const body = await req.json();
@@ -39,8 +39,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  * Remove uma licença
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+  const session = await getSession();
+  if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   const { id } = await params;
 
