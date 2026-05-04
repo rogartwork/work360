@@ -154,7 +154,7 @@ export default function LoginPage() {
               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
               <span className="text-[9px] font-bold tracking-widest uppercase">Criptografia Ativa</span>
            </div>
-           <span className="text-[9px] font-bold tracking-widest uppercase">Sistema CRM v1.0</span>
+           <span className="text-[9px] font-bold tracking-widest uppercase">Sistema CRM v1.0.1</span>
         </div>
       </div>
     </main>
