@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEXUS HUB | Inteligência Central",
-  description: "Monitoramento de alta performance para WhatsApp e Licenças NEXUS",
+  title: "NEXUS CRM | Inteligência Central",
+  description: "Gestão de alta performance e automação inteligente NEXUS",
 };
 
 export default function RootLayout({

@@ -7,6 +7,7 @@ export function proxy(req: NextRequest) {
   // Permitir acesso à página de login e assets públicos
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/vendas") ||
     pathname.includes("_next") ||
     pathname.includes("favicon.ico") ||
     pathname.startsWith("/api/auth") ||

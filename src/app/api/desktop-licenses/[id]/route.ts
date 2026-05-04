@@ -18,10 +18,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         ...(body.isActive !== undefined && { isActive: body.isActive }),
-        ...(body.clientName && { clientName: body.clientName.trim() }),
         ...(body.plan && { plan: body.plan }),
         ...(body.expiresAt !== undefined && { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null }),
-        ...(body.notes !== undefined && { notes: body.notes }),
         // Permite reset do machineId para transferência de máquina
         ...(body.resetMachine === true && { machineId: null }),
       },

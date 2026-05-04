@@ -35,7 +35,11 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        router.push("/");
+        if (data.role === 'CUSTOMER') {
+          router.push("/painel");
+        } else {
+          router.push("/");
+        }
         router.refresh();
       } else {
         setError(data.error || "Falha na autenticação");
@@ -52,7 +56,6 @@ export default function LoginPage() {
       {/*HUD ELEMENTS */}
       <div className="noise-overlay" />
       <div className="hud-grid absolute inset-0 opacity-20" />
-      <div className="scanner-line" />
       
       {/* SPOTLIGHT CINÉTICO */}
       <div 
@@ -66,10 +69,10 @@ export default function LoginPage() {
         {/* ÁREA DO LOGO */}
         <div className="text-center mb-10 animate-in fade-in zoom-in duration-700">
            <div className="relative inline-block group">
-              <img 
-                src="/logo.svg" 
-                alt="Nexus Hub" 
-                className="h-24 w-auto object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-transform duration-500 group-hover:scale-110" 
+              <img
+                src="/xnexus.png"
+                alt="Nexus 360"
+                className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-transform duration-500 group-hover:scale-110"
               />
               <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent blur-sm" />
            </div>
@@ -78,6 +81,11 @@ export default function LoginPage() {
 
         {/* CARD DE LOGIN */}
         <div className="glass-panel p-8 md:p-10 rounded-[2.5rem] relative overflow-hidden animate-in slide-in-from-bottom-8 duration-700">
+          {error && (
+            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-center animate-shake">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleLogin} className="space-y-6">
             {error && (
               <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold p-4 rounded-xl flex items-center gap-3 animate-shake">
@@ -146,7 +154,7 @@ export default function LoginPage() {
               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
               <span className="text-[9px] font-bold tracking-widest uppercase">Criptografia Ativa</span>
            </div>
-           <span className="text-[9px] font-bold tracking-widest uppercase">Sistema Protocolo v8.4</span>
+           <span className="text-[9px] font-bold tracking-widest uppercase">Sistema CRM v1.0</span>
         </div>
       </div>
     </main>

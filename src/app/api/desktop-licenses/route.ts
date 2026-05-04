@@ -9,15 +9,19 @@ function generateLicenseKey(): string {
   return `NEXUS-${segment()}-${segment()}-${segment()}`;
 }
 
-/**
- * GET /api/desktop-licenses
- * Lista todas as licenças Desktop
- */
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   const licenses = await prisma.desktopLicense.findMany({
+    include: {
+      customer: {
+        select: {
+          name: true,
+          email: true,
+        }
+      }
+    },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -26,17 +30,17 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/desktop-licenses
- * Cria uma nova licença Desktop
+ * Cria uma nova licença Desktop vinculada a um cliente
  */
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   try {
-    const { clientName, email, plan, expiresAt, notes } = await req.json();
+    const { customerId, plan, expiresAt } = await req.json();
 
-    if (!clientName || typeof clientName !== 'string') {
-      return NextResponse.json({ error: 'Nome do cliente é obrigatório.' }, { status: 400 });
+    if (!customerId) {
+      return NextResponse.json({ error: 'ID do cliente é obrigatório.' }, { status: 400 });
     }
 
     const key = generateLicenseKey();
@@ -44,11 +48,9 @@ export async function POST(req: NextRequest) {
     const license = await prisma.desktopLicense.create({
       data: {
         key,
-        clientName: clientName.trim(),
-        email: email?.trim() || null,
+        customerId,
         plan: plan || 'STANDARD',
         expiresAt: expiresAt ? new Date(expiresAt) : null,
-        notes: notes?.trim() || null,
       },
     });
 

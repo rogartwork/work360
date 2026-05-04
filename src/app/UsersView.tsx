@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LucideUser, LucideTrash2, LucidePlus, LucideActivity, LucideShieldAlert, LucideKeyRound } from "lucide-react";
+import { LucideUser, LucideTrash2, LucidePlus, LucideActivity, LucideShieldAlert, LucideKeyRound, LucideEdit } from "lucide-react";
 
 interface User {
   id: string;
@@ -12,9 +12,10 @@ export default function UsersView() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ username: "", password: "", role: "USER" });
+  const [formData, setFormData] = useState({ id: "", username: "", password: "", role: "USER" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -50,31 +51,47 @@ export default function UsersView() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/users", {
-        method: "POST",
+      const url = isEditing ? `/api/users/${formData.id}` : "/api/users";
+      const method = isEditing ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       if (res.ok) {
         setShowModal(false);
-        setFormData({ username: "", password: "", role: "USER" });
+        setFormData({ id: "", username: "", password: "", role: "USER" });
+        setIsEditing(false);
         fetchUsers();
       } else {
         const data = await res.json();
-        setError(data.error || "Erro ao criar usuário");
+        setError(data.error || `Erro ao ${isEditing ? "atualizar" : "criar"} usuário`);
       }
     } catch (err) {
       setError("Erro de rede ao conectar ao servidor.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openCreateModal = () => {
+    setIsEditing(false);
+    setFormData({ id: "", username: "", password: "", role: "USER" });
+    setShowModal(true);
+  };
+
+  const openEditModal = (user: User) => {
+    setIsEditing(true);
+    setFormData({ id: user.id, username: user.username, password: "", role: user.role });
+    setShowModal(true);
   };
 
   return (
@@ -88,7 +105,7 @@ export default function UsersView() {
           <p className="text-xs text-slate-500 mt-1 font-bold">Gestão de administradores e usuários do HUB</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
           className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]"
         >
           <LucidePlus size={16} /> Novo Acesso
@@ -156,13 +173,22 @@ export default function UsersView() {
                       <p className="text-[11px] font-bold text-slate-300">{new Date(user.createdAt).toLocaleDateString('pt-BR')}</p>
                     </td>
                     <td className="px-8 py-3 text-right">
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-all border border-transparent hover:border-rose-500/30"
-                        title="Remover Acesso"
-                      >
-                        <LucideTrash2 size={16} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="p-2.5 rounded-xl bg-white/5 hover:bg-blue-500/20 text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-blue-500/30"
+                          title="Editar Acesso"
+                        >
+                          <LucideEdit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-all border border-transparent hover:border-rose-500/30"
+                          title="Remover Acesso"
+                        >
+                          <LucideTrash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -173,12 +199,14 @@ export default function UsersView() {
       </div>
 
       {/* Modal Criar Usuário */}
+      {/* Modal Criar/Editar Usuário */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
           <div className="relative glass-panel w-full max-w-md rounded-3xl border border-white/10 p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-xl font-black uppercase tracking-widest text-white mb-6 flex items-center gap-2">
-              <LucideUser className="text-blue-500" /> Novo Acesso
+              <LucideShieldAlert size={20} className="text-blue-500" /> 
+              {isEditing ? "Editar Acesso" : "Adicionar Novo Acesso"}
             </h3>
             
             {error && (
@@ -187,16 +215,17 @@ export default function UsersView() {
               </div>
             )}
 
-            <form onSubmit={handleCreate} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Username</label>
                 <input
                   type="text"
                   required
+                  disabled={isEditing}
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all"
-                  placeholder="ex: operador_01"
+                  className="w-full bg-black/40 border border-white/10 focus:border-blue-500 rounded-xl py-3 px-4 text-xs font-bold text-white outline-none transition-all disabled:opacity-50"
+                  placeholder="admin.geral"
                 />
               </div>
               
@@ -204,11 +233,11 @@ export default function UsersView() {
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Senha</label>
                 <input
                   type="password"
-                  required
+                  required={!isEditing}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all"
-                  placeholder="••••••••"
+                  className="w-full bg-black/40 border border-white/10 focus:border-blue-500 rounded-xl py-3 px-4 text-xs font-bold text-white outline-none transition-all"
+                  placeholder={isEditing ? "(Deixe em branco para não alterar)" : "********"}
                 />
               </div>
 
@@ -244,16 +273,20 @@ export default function UsersView() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs uppercase tracking-widest transition-all"
+                  className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all border border-white/10 hover:border-white/20"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50"
+                  className="flex-1 py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] disabled:opacity-50"
                 >
-                  {submitting ? 'Criando...' : 'Confirmar'}
+                  {submitting ? (
+                    <LucideActivity size={16} className="animate-spin" />
+                  ) : (
+                    isEditing ? "Salvar" : "Criar Acesso"
+                  )}
                 </button>
               </div>
             </form>

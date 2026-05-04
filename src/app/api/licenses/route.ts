@@ -62,6 +62,7 @@ export async function GET() {
                expiresAt: user.expiresAt,
                isActive: user.isActive,
                plan: user.plan,
+               type: 'WEB (NODE)',
                chipsConfigured: userChips.total,
                chipsOnline: userChips.online,
                serverIp: target.name === "X360C Produção (VPS)" ? "VPS" : "127.0.0.1"
@@ -75,6 +76,46 @@ export async function GET() {
       }
     }
 
+    // Buscar Licenças Desktop Nativas do NEXUS-CRM
+    const desktopLicenses = await prisma.desktopLicense.findMany({ include: { customer: true } });
+    desktopLicenses.forEach(lic => {
+      allLicenses.push({
+        sourceDbId: 'nexus-crm-db',
+        sourceName: 'NEXUS-CRM',
+        id: lic.id,
+        name: lic.customer?.name || "Cliente",
+        type: 'DESKTOP',
+        role: 'CUSTOMER',
+        maxSessions: 1,
+        expiresAt: lic.expiresAt,
+        isActive: lic.isActive,
+        plan: lic.plan,
+        chipsConfigured: 1,
+        chipsOnline: lic.lastSeenAt && (Date.now() - new Date(lic.lastSeenAt).getTime() < 300000) ? 1 : 0,
+        serverIp: lic.machineId || 'Sem Vínculo',
+      });
+    });
+
+    // Buscar Licenças Web Nativas do NEXUS-CRM
+    const webLicenses = await prisma.webLicense.findMany({ include: { customer: true } });
+    webLicenses.forEach(lic => {
+      allLicenses.push({
+        sourceDbId: 'nexus-crm-db',
+        sourceName: 'NEXUS-CRM',
+        id: lic.id,
+        name: lic.name || lic.customer?.name,
+        type: 'WEB',
+        role: lic.role,
+        maxSessions: lic.maxSessions,
+        expiresAt: lic.expiresAt,
+        isActive: lic.isActive,
+        plan: lic.plan,
+        chipsConfigured: lic.maxSessions,
+        chipsOnline: 0,
+        serverIp: 'NEXUS Cloud',
+      });
+    });
+
     // SIMULATION MODE: Inject mock data if no real data found in development
     if (allLicenses.length === 0 && process.env.NODE_ENV === 'development') {
       const mockLicenses = [
@@ -83,6 +124,7 @@ export async function GET() {
           sourceName: 'SIMULADOR ALFA',
           id: 'user-001',
           name: 'ROGERIO (SIMULADO)',
+          type: 'WEB (SIM)',
           role: 'ADMIN',
           maxSessions: 10,
           expiresAt: new Date(Date.now() + 86400000 * 30).toISOString(),
@@ -98,6 +140,7 @@ export async function GET() {
           sourceName: 'SIMULADOR ALFA',
           id: 'user-002',
           name: 'CLIENTE BETA',
+          type: 'WEB (SIM)',
           role: 'USER',
           maxSessions: 5,
           expiresAt: new Date(Date.now() + 86400000 * 2).toISOString(),
@@ -113,6 +156,7 @@ export async function GET() {
           sourceName: 'SIMULADOR GAMA',
           id: 'user-003',
           name: 'CONTA EXPIRADA',
+          type: 'WEB (SIM)',
           role: 'USER',
           maxSessions: 2,
           expiresAt: new Date(Date.now() - 86400000).toISOString(),

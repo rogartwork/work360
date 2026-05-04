@@ -32,7 +32,10 @@ export async function POST(req: Request) {
     session.isLoggedIn = true;
     await session.save();
 
-    return NextResponse.json({ message: "Login realizado com sucesso" });
+    return NextResponse.json({ 
+      message: "Login realizado com sucesso",
+      role: admin.role
+    });
   } catch (error: any) {
     console.error("ERRO LOGIN:", error.message);
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });

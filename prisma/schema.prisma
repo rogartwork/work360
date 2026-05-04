@@ -19,28 +19,143 @@ model TargetDatabase {
 model User {
   id        String   @id @default(cuid())
   username  String   @unique
-  password  String   // Hash da senha
-  role      String   @default("USER") // ADMIN ou USER
+  password  String
+  role      String   @default("CUSTOMER") // SUPER_ADMIN, SUPPORT, AFFILIATE, CUSTOMER
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("Admin")
+  @@map("Users")
+  TicketReply TicketReply[]
 }
 
-// ============================================================
-// Licenças do NEXUS 360 Desktop
-// ============================================================
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String?
+  cpfCnpj     String?  @unique
+  address     String?
+  notes       String?
+  status      String   @default("LEAD") // LEAD, ACTIVE, INACTIVE
+  affiliateId String?
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
+  licenses    DesktopLicense[]
+  webLicenses WebLicense[]
+  subscriptions Subscription[]
+  interactionLogs InteractionLog[]
+  Ticket         Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("Customers")
+}
+
+model Affiliate {
+  id           String     @id @default(cuid())
+  userId       String     @unique
+  referralCode String     @unique
+  commission   Float      @default(0.10) // 10% padrão
+  customers    Customer[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
 model DesktopLicense {
   id         String    @id @default(cuid())
   key        String    @unique // Ex: NEXUS-XXXX-XXXX-XXXX
-  clientName String    // Nome do cliente
-  email      String?   // E-mail do cliente
-  plan       String    @default("STANDARD") // STANDARD, PRO, UNLIMITED
-  machineId  String?   // Hash da máquina onde foi ativada
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  plan       String    @default("STANDARD")
+  machineId  String?
   isActive   Boolean   @default(true)
-  expiresAt  DateTime? // null = vitalício
+  expiresAt  DateTime?
+  lastSeenAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  lastSeenAt DateTime? // Última validação online
-  notes      String?   // Observações internas
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  amount        Float
+  status        String   @default("PENDING") // PENDING, PAID, EXPIRED, CANCELED
+  paymentMethod String?  // PIX, MERCADO_PAGO
+  paymentId     String?  // ID da transação no gateway
+  paidAt        DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WebLicense {
+  id          String    @id @default(cuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  
+  username    String    @unique
+  password    String    
+  
+  name        String
+  role        String    @default("CUSTOMER")
+  plan        String    @default("STANDARD")
+  maxSessions Int       @default(1)
+  
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model InteractionLog {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  type        String   @default("NOTE") // NOTE, CALL, EMAIL, WHATSAPP, SYSTEM
+  content     String
+  createdAt   DateTime @default(now())
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  duration    Int      @default(30) // Dias
+  maxSessions Int      @default(1)
+  type        String   @default("WEB") // WEB, DESKTOP, COMBO
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  
+  subject     String
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, CLOSED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  category    String   @default("TECHNICAL") // TECHNICAL, BILLING, OTHER
+  
+  replies     TicketReply[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TicketReply {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  
+  userId    String?  // Se nulo, foi o cliente que enviou (pelo customerId do ticket)
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  message   String
+  isAdmin   Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
 }

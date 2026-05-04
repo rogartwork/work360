@@ -4,7 +4,11 @@ import { LucideKey, LucidePlus, LucideTrash2, LucideRefreshCcw, LucideActivity, 
 interface DesktopLicense {
   id: string;
   key: string;
-  clientName: string;
+  customerId: string;
+  customer: {
+    name: string;
+    email: string;
+  };
   plan: string;
   isActive: boolean;
   machineId: string | null;
@@ -12,12 +16,18 @@ interface DesktopLicense {
   lastSeenAt: string | null;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+}
+
 export default function DesktopLicensesView() {
   const [licenses, setLicenses] = useState<DesktopLicense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newClientName, setNewClientName] = useState("");
   const [newPlan, setNewPlan] = useState("STANDARD");
 
   const fetchLicenses = useCallback(async () => {
@@ -37,19 +47,31 @@ export default function DesktopLicensesView() {
     fetchLicenses();
   }, [fetchLicenses]);
 
+  const fetchCustomers = async () => {
+    try {
+      const res = await fetch("/api/customers");
+      if (res.ok) setCustomers(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const handleOpenModal = () => {
+    fetchCustomers();
+    setShowCreateModal(true);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientName.trim()) return;
+    if (!selectedCustomerId) return;
 
     try {
       const res = await fetch("/api/desktop-licenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientName: newClientName, plan: newPlan }),
+        body: JSON.stringify({ customerId: selectedCustomerId, plan: newPlan }),
       });
       if (res.ok) {
         setShowCreateModal(false);
-        setNewClientName("");
+        setSelectedCustomerId("");
         fetchLicenses();
       }
     } catch (e) {
@@ -118,7 +140,7 @@ export default function DesktopLicensesView() {
             <LucideRefreshCcw size={18} className={refreshing ? "animate-spin" : ""} />
           </button>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleOpenModal}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-widest uppercase rounded-xl flex items-center gap-2 transition-colors"
           >
             <LucidePlus size={16} /> Nova Licença
@@ -159,7 +181,7 @@ export default function DesktopLicensesView() {
                       </button>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-bold text-sm text-white">{lic.clientName}</p>
+                      <p className="font-bold text-sm text-white">{lic.customer?.name || "Cliente Removido"}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <LucideKey size={10} className="text-slate-500" />
                         <span className="text-xs font-mono text-slate-400 select-all">{lic.key}</span>
@@ -218,15 +240,18 @@ export default function DesktopLicensesView() {
             </h3>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Nome do Cliente/Empresa</label>
-                <input
-                  type="text"
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Selecionar Cliente (CRM)</label>
+                <select
                   required
-                  value={newClientName}
-                  onChange={e => setNewClientName(e.target.value)}
+                  value={selectedCustomerId}
+                  onChange={e => setSelectedCustomerId(e.target.value)}
                   className="w-full bg-[#1a1c23] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 outline-none transition-colors"
-                  placeholder="Ex: Agência X"
-                />
+                >
+                  <option value="">Selecione um cliente...</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Plano</label>
