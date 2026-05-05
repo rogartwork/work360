@@ -2,24 +2,30 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { 
-  LucideMessageSquare, LucideUser, LucideCheckCircle, LucideSend, 
-  LucideSearch, LucideActivity, LucideAlertCircle, LucideRotateCcw, 
-  LucideInbox, LucideAlertOctagon, LucideCheckSquare, LucideChevronDown, LucideChevronUp, LucidePanelLeft
+  LucideUser, LucideCheckCircle, LucideSend, 
+  LucideActivity, LucideAlertCircle, LucideRotateCcw, 
+  LucideAlertOctagon, LucideCheckSquare, LucideChevronDown, LucideChevronUp
 } from "lucide-react";
 
-export default function SupportView() {
+type SupportFilter = "UNSOLVED" | "OPEN" | "URGENT" | "CLOSED" | "ALL";
+
+interface SupportViewProps {
+  currentViewFilter: SupportFilter;
+  onFilterChange: (f: SupportFilter) => void;
+  searchTerm: string;
+  onSearchChange: (v: string) => void;
+}
+
+export default function SupportView({ currentViewFilter, onFilterChange, searchTerm, onSearchChange }: SupportViewProps) {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Navigation State
   const [viewMode, setViewMode] = useState<"LIST" | "DETAIL">("LIST");
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   // List Filters & Sort
-  const [currentViewFilter, setCurrentViewFilter] = useState<"UNSOLVED" | "OPEN" | "CLOSED" | "URGENT" | "ALL">("UNSOLVED");
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: "asc" | "desc" }>({ key: "updatedAt", direction: "desc" });
-  const [searchTerm, setSearchTerm] = useState("");
 
   // Detail State
   const [replyMessage, setReplyMessage] = useState("");
@@ -149,70 +155,13 @@ export default function SupportView() {
   );
 
   return (
-    <div className="h-[calc(100vh-140px)] animate-in fade-in duration-300 flex flex-col bg-[#050505]">
-      
-      {/* HEADER DA SEÇÃO DE SUPORTE */}
-      <div className="flex items-center justify-between mb-6 shrink-0 px-2">
-        <div className="flex items-center gap-4">
-          {viewMode === "LIST" && (
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
-              title="Alternar Menu Lateral"
-            >
-              <LucidePanelLeft size={20} />
-            </button>
-          )}
-          <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
-            <LucideMessageSquare size={24} className="text-blue-500" /> Help Desk
-          </h2>
-        </div>
-        
-        {viewMode === "LIST" && (
-          <div className="relative w-64">
-            <LucideSearch size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input 
-              type="text" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar chamado..." 
-              className="w-full bg-white/5 border border-white/10 rounded-lg py-2 pl-10 pr-4 text-xs font-medium outline-none focus:border-blue-500/50 transition-all"
-            />
-          </div>
-        )}
-      </div>
+    <div className="h-[calc(100vh-120px)] animate-in fade-in duration-300 flex flex-col">
 
       {viewMode === "LIST" ? (
         /* ======================== VISÃO DE LISTA ======================== */
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-          
-          {/* Menu Lateral de Views */}
-          {isSidebarOpen && (
-            <div className="lg:col-span-2 flex flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar animate-in slide-in-from-left-4 duration-300">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 pl-2">Visualizações</div>
-              
-              <button onClick={() => setCurrentViewFilter("UNSOLVED")} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${currentViewFilter === "UNSOLVED" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "text-slate-400 hover:bg-white/5 border border-transparent"}`}>
-                <LucideInbox size={16} /> Não Resolvidos
-              </button>
-              <button onClick={() => setCurrentViewFilter("OPEN")} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${currentViewFilter === "OPEN" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "text-slate-400 hover:bg-white/5 border border-transparent"}`}>
-                <LucideActivity size={16} /> Novos / Abertos
-              </button>
-              <button onClick={() => setCurrentViewFilter("URGENT")} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${currentViewFilter === "URGENT" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : "text-slate-400 hover:bg-white/5 border border-transparent"}`}>
-                <LucideAlertOctagon size={16} /> Urgentes
-              </button>
-              <button onClick={() => setCurrentViewFilter("CLOSED")} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${currentViewFilter === "CLOSED" ? "bg-slate-500/20 text-white border border-slate-500/20" : "text-slate-400 hover:bg-white/5 border border-transparent"}`}>
-                <LucideCheckSquare size={16} /> Fechados
-              </button>
-              <button onClick={() => setCurrentViewFilter("ALL")} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-left ${currentViewFilter === "ALL" ? "bg-white/10 text-white border border-white/10" : "text-slate-400 hover:bg-white/5 border border-transparent"}`}>
-                <LucideMessageSquare size={16} /> Todos
-              </button>
-            </div>
-          )}
-
-          {/* Data Table */}
-          <div className={`${isSidebarOpen ? 'lg:col-span-10' : 'lg:col-span-12'} flex flex-col bg-[#0a0a0c] rounded-2xl border border-white/5 overflow-hidden shadow-2xl transition-all duration-300`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+        <div className="flex-1 flex flex-col bg-[#0a0a0c] rounded-2xl border border-white/5 overflow-hidden shadow-2xl transition-all duration-300 min-h-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-white/[0.02] border-b border-white/5">
                     <th className="p-4 w-12 text-center text-slate-500"><input type="checkbox" className="rounded border-white/20 bg-transparent" disabled /></th>
@@ -266,7 +215,6 @@ export default function SupportView() {
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
       ) : (
         /* ======================== VISÃO DE DETALHES ======================== */

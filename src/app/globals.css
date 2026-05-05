@@ -9,6 +9,17 @@
   --danger: #EF4444;
   --card: rgba(15, 15, 20, 0.6);
   --border: rgba(255, 255, 255, 0.08);
+  /* Zoom control: set via JS when user adjusts zoom */
+  --nexus-zoom: 1;
+}
+
+/* Compensates for body zoom so h-screen fills the full visual viewport.
+   Without this, 100vh at zoom:80% = 80% of screen, leaving blank space at bottom. */
+.h-screen {
+  height: calc(100vh / var(--nexus-zoom)) !important;
+}
+.min-h-screen {
+  min-height: calc(100vh / var(--nexus-zoom)) !important;
 }
 
 body {

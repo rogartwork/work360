@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { applyZoom, STORAGE_KEY as ZOOM_KEY } from "./ZoomControl";
 import {
   LucideServer,
   LucideSmartphone,
@@ -9,16 +10,21 @@ import {
   LucideCalendar,
   LucideUser,
   LucideChevronDown,
+  LucideChevronRight,
   LucideDatabase,
   LucideShieldCheck,
   LucideLogOut,
   LucideActivity,
-  LucideCpu,
   LucideAlertCircle,
   LucideLayoutGrid,
   LucideList,
   LucideGlobe,
-  LucideMonitorSmartphone
+  LucideMonitorSmartphone,
+  LucideMessageSquare,
+  LucideInbox,
+  LucideAlertOctagon,
+  LucideCheckSquare,
+  LucideSearch
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import DesktopLicensesView from "./DesktopLicensesView";
@@ -26,7 +32,6 @@ import WebLicensesView from "./WebLicensesView";
 import UsersView from "./UsersView";
 import CRMView from "./CRMView";
 import SupportView from "./SupportView";
-import { LucideMessageSquare } from "lucide-react";
 
 interface License {
   sourceDbId: string;
@@ -77,7 +82,36 @@ export default function HubDashboard() {
   const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'users' | 'crm' | 'suporte'>('hub');
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [userRole, setUserRole] = useState<string>('CUSTOMER');
+  const [supportFilter, setSupportFilter] = useState<'UNSOLVED' | 'OPEN' | 'URGENT' | 'CLOSED' | 'ALL'>('UNSOLVED');
+  const [supportSearch, setSupportSearch] = useState('');
+  const [zoom, setZoom] = useState(100);
+  const [showZoomPanel, setShowZoomPanel] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const saved = localStorage.getItem(ZOOM_KEY);
+    setZoom(saved ? parseInt(saved, 10) : 100);
+  }, []);
+
+  const handleZoom = (delta: number) => {
+    setZoom(prev => {
+      const levels = [70, 75, 80, 85, 90, 95, 100];
+      const currentIdx = levels.indexOf(prev);
+      const nextIdx = Math.max(0, Math.min(levels.length - 1, currentIdx + delta));
+      const next = levels[nextIdx];
+      applyZoom(next);
+      localStorage.setItem(ZOOM_KEY, String(next));
+      return next;
+    });
+  };
+
+  // Auto-fecha o painel 2s após qualquer interação
+  useEffect(() => {
+    if (!showZoomPanel) return;
+    const timer = setTimeout(() => setShowZoomPanel(false), 2000);
+    return () => clearTimeout(timer);
+  }, [showZoomPanel, zoom]);
+
 
   const isSimulated = licenses.some(l => l.isSimulated);
 
@@ -207,16 +241,104 @@ export default function HubDashboard() {
           )}
 
           {(userRole === 'SUPER_ADMIN' || userRole === 'SUPPORT' || userRole === 'ADMIN') && (
-            <button
-              onClick={() => setActiveTab('suporte')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'suporte' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
-            >
-              <LucideMessageSquare size={15} /> Suporte / Tickets
-            </button>
+            <div className="flex flex-col">
+              <button
+                onClick={() => setActiveTab('suporte')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'suporte' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
+              >
+                <LucideMessageSquare size={15} /> Suporte / Tickets
+                {activeTab === 'suporte' && <LucideChevronDown size={12} className="ml-auto" />}
+                {activeTab !== 'suporte' && <LucideChevronRight size={12} className="ml-auto opacity-30" />}
+              </button>
+
+              {/* Sub-filtros — visíveis apenas quando o módulo Suporte está ativo */}
+              {activeTab === 'suporte' && (
+                <div className="mt-1 ml-3 pl-3 border-l border-indigo-500/20 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <button
+                    onClick={() => setSupportFilter('UNSOLVED')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
+                      supportFilter === 'UNSOLVED' ? 'text-indigo-300 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <LucideInbox size={12} /> Não Resolvidos
+                  </button>
+                  <button
+                    onClick={() => setSupportFilter('OPEN')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
+                      supportFilter === 'OPEN' ? 'text-blue-300 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <LucideActivity size={12} /> Novos / Abertos
+                  </button>
+                  <button
+                    onClick={() => setSupportFilter('URGENT')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
+                      supportFilter === 'URGENT' ? 'text-rose-300 bg-rose-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <LucideAlertOctagon size={12} /> Urgentes
+                  </button>
+                  <button
+                    onClick={() => setSupportFilter('CLOSED')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
+                      supportFilter === 'CLOSED' ? 'text-slate-300 bg-white/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <LucideCheckSquare size={12} /> Fechados
+                  </button>
+                  <button
+                    onClick={() => setSupportFilter('ALL')}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
+                      supportFilter === 'ALL' ? 'text-slate-300 bg-white/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <LucideMessageSquare size={12} /> Todos
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </nav>
 
-        <div className="p-6 border-t border-white/[0.02]">
+        <div className="px-4 pb-3 border-t border-white/[0.02] pt-4">
+
+          {/* ZOOM — botão discreto, painel abre ao clicar */}
+          {showZoomPanel && (
+            <div className="flex items-center justify-between px-1 mb-2 animate-in fade-in slide-in-from-bottom-1 duration-150">
+              <button
+                onClick={() => handleZoom(-1)}
+                disabled={zoom <= 70}
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-20 transition-all text-sm"
+              >−</button>
+              <button
+                onClick={() => { applyZoom(100); localStorage.setItem(ZOOM_KEY, '100'); setZoom(100); }}
+                title="Restaurar 100%"
+                className={`text-[9px] font-black tracking-widest transition-colors px-2 ${zoom < 100 ? 'text-indigo-400 hover:text-indigo-300' : 'text-slate-500 cursor-default'}`}
+              >{zoom}%</button>
+              <button
+                onClick={() => handleZoom(1)}
+                disabled={zoom >= 100}
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-20 transition-all text-sm"
+              >+</button>
+            </div>
+          )}
+
+          {/* Botão gatilho — discreto, apenas um ícone + percentual */}
+          <button
+            onClick={() => setShowZoomPanel(v => !v)}
+            title={`Escala da Interface: ${zoom}%`}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl mb-1 transition-all ${
+              showZoomPanel
+                ? 'bg-white/5 text-slate-400 text-[9px] font-bold uppercase tracking-widest'
+                : 'text-slate-600 hover:text-slate-400 hover:bg-white/[0.03]'
+            }`}
+          >
+            <LucideMonitorSmartphone size={12} className={zoom < 100 ? 'text-indigo-400' : ''} />
+            {showZoomPanel && (
+              <span>Escala {zoom}%</span>
+            )}
+          </button>
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-rose-500/70 hover:bg-rose-500/10 hover:text-rose-400 border border-transparent hover:border-rose-500/20 transition-all text-[10px] font-bold uppercase tracking-widest"
@@ -227,7 +349,7 @@ export default function HubDashboard() {
       </aside>
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 relative z-10 h-screen overflow-y-auto scroll-smooth">
-        <div className="p-6 md:p-8 lg:p-12 max-w-[1400px] mx-auto">
+        <div className={`max-w-[1400px] mx-auto ${activeTab === 'suporte' ? 'p-4 md:p-6' : 'p-6 md:p-8 lg:p-12'}`}>
 
           {/* HEADER ACTION BAR */}
           <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
@@ -241,11 +363,25 @@ export default function HubDashboard() {
                       'Segurança e Acessos'}
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                {activeTab === 'suporte' ? 'Resolva chamados e ajude seus clientes' : 'Plataforma NEXUS-CRM'}
+                {activeTab === 'suporte' ? 'Fila de atendimento em tempo real' : 'Plataforma NEXUS-CRM'}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {/* BUSCA DE CHAMADOS — só aparece no módulo de Suporte */}
+              {activeTab === 'suporte' && (
+                <div className="relative">
+                  <LucideSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={supportSearch}
+                    onChange={(e) => setSupportSearch(e.target.value)}
+                    placeholder="Buscar chamado..."
+                    className="w-52 bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-[10px] font-medium outline-none focus:border-indigo-500/50 focus:w-72 transition-all duration-300 text-slate-300"
+                  />
+                </div>
+              )}
+
               {/* INTERVALO */}
               <div className="relative">
                 <button
@@ -271,8 +407,8 @@ export default function HubDashboard() {
                 )}
               </div>
 
-              {/* MODO DISPLAY */}
-              {(activeTab === 'hub' || activeTab === 'suporte') && (
+              {/* MODO DISPLAY — só no hub */}
+              {activeTab === 'hub' && (
                 <button
                   onClick={() => setIsSidebarHidden(!isSidebarHidden)}
                   className={`px-4 py-2.5 glass-panel rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isSidebarHidden ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'text-slate-300 hover:bg-white/5'}`}
@@ -502,7 +638,7 @@ export default function HubDashboard() {
           ) : activeTab === 'crm' ? (
             <CRMView />
           ) : activeTab === 'suporte' ? (
-            <SupportView />
+            <SupportView currentViewFilter={supportFilter} onFilterChange={setSupportFilter} searchTerm={supportSearch} onSearchChange={setSupportSearch} />
           ) : (
             <UsersView />
           )}
