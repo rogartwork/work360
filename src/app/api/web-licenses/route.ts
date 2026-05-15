@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
+    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN' && session.role !== 'SUPPORT')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
+    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN' && session.role !== 'SUPPORT')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

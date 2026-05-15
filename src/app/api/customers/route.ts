@@ -5,26 +5,24 @@ import { getSession } from "@/lib/session";
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
+    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN' && session.role !== 'SUPPORT')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     const customers = await prisma.customer.findMany({
       include: {
-        affiliate: {
-          select: {
-            referralCode: true,
-          }
+        affiliate: { select: { referralCode: true } },
+        licenses: { select: { isActive: true, expiresAt: true } },
+        webLicenses: { select: { isActive: true, expiresAt: true } },
+        Ticket: { select: { status: true } },
+        interactionLogs: {
+          select: { createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
         },
-        _count: {
-          select: {
-            licenses: true,
-          }
-        }
+        _count: { select: { licenses: true } },
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(customers);
@@ -37,7 +35,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
+    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN' && session.role !== 'SUPPORT')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

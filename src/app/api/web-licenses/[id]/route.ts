@@ -3,14 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import bcrypt from "bcrypt";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
+    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN' && session.role !== 'SUPPORT')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { name, role, plan, maxSessions, isActive, expiresAt, password } = body;
 
@@ -38,14 +38,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
+    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN' && session.role !== 'SUPPORT')) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     await prisma.webLicense.delete({
       where: { id }

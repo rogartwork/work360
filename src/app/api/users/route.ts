@@ -6,7 +6,7 @@ import { getSession } from "@/lib/session";
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || session.role !== 'ADMIN') {
+    if (!session.isLoggedIn || session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
@@ -31,7 +31,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || session.role !== 'ADMIN') {
+    if (!session.isLoggedIn || session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 

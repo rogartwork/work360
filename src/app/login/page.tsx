@@ -56,9 +56,9 @@ export default function LoginPage() {
       {/*HUD ELEMENTS */}
       <div className="noise-overlay" />
       <div className="hud-grid absolute inset-0 opacity-20" />
-      
+
       {/* SPOTLIGHT CINÉTICO */}
-      <div 
+      <div
         className="absolute inset-0 opacity-30 pointer-events-none transition-opacity duration-1000"
         style={{
           background: `radial-gradient(circle 500px at ${mousePos.x}px ${mousePos.y}px, rgba(59, 130, 246, 0.1), transparent)`
@@ -68,15 +68,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* ÁREA DO LOGO */}
         <div className="text-center mb-10 animate-in fade-in zoom-in duration-700">
-           <div className="relative inline-block group">
-              <img
-                src="/xnexus.png"
-                alt="Nexus 360"
-                className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-transform duration-500 group-hover:scale-110"
-              />
-              <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent blur-sm" />
-           </div>
-           <p className="text-slate-500 text-[10px] font-bold tracking-[0.5em] uppercase mt-6 opacity-60">Terminal de Acesso Seguro</p>
+          <div className="relative inline-block group">
+            <img
+              src="/logo.png"
+              alt="WORK360"
+              className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-transform duration-500 group-hover:scale-110"
+            />
+            <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent blur-sm" />
+          </div>
+          <p className="text-slate-500 text-[10px] font-bold tracking-[0.5em] uppercase mt-6 opacity-60">PAINEL ADMINSTRATIVO</p>
         </div>
 
         {/* CARD DE LOGIN */}
@@ -150,11 +150,11 @@ export default function LoginPage() {
 
         {/* RODAPÉ */}
         <div className="mt-8 flex items-center justify-between px-2 opacity-30">
-           <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-              <span className="text-[9px] font-bold tracking-widest uppercase">Criptografia Ativa</span>
-           </div>
-           <span className="text-[9px] font-bold tracking-widest uppercase">Sistema CRM v1.0.1</span>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+            <span className="text-[9px] font-bold tracking-widest uppercase">Criptografia Ativa</span>
+          </div>
+          <span className="text-[9px] font-bold tracking-widest uppercase">Portal WORK360 v1.1.01</span>
         </div>
       </div>
     </main>

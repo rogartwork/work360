@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEXUS CRM | Inteligência Central",
+  title: "NEXUS360 - Automação e Menssageria",
   description: "Gestão de alta performance e automação inteligente NEXUS",
 };
 

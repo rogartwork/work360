@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || session.role !== 'ADMIN') {
+    if (!session.isLoggedIn || session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
@@ -29,7 +29,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getSession();
-    if (!session.isLoggedIn || session.role !== 'ADMIN') {
+    if (!session.isLoggedIn || session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 

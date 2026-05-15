@@ -70,8 +70,7 @@ export async function POST(req: Request) {
           data: {
             username: username,
             password: hashedPassword,
-            role: "CUSTOMER",
-            name: customer_name || "Cliente Nexus"
+            role: "CUSTOMER"
           }
         });
 

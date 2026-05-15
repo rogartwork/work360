@@ -1,35 +1,77 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  try {
-    const session = await getSession();
-    if (!session.isLoggedIn || (session.role !== 'SUPER_ADMIN' && session.role !== 'SUPPORT')) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
 
-    const { id } = await params;
-    const body = await req.json();
-    const { name, email, phone, cpfCnpj, address, notes, status } = body;
+  const customer = await prisma.customer.findUnique({
+    where: { id },
+    include: {
+      Ticket: {
+        orderBy: { createdAt: "desc" },
+        include: {
+          replies: { orderBy: { createdAt: "asc" } },
+        },
+      },
+      webLicenses: { orderBy: { createdAt: "desc" } },
+      licenses: { orderBy: { createdAt: "desc" } },
+      subscriptions: { orderBy: { createdAt: "desc" } },
+      interactionLogs: { orderBy: { createdAt: "desc" } },
+      inboxContacts: {
+        include: {
+          messages: {
+            orderBy: { sentAt: "desc" },
+            take: 5,
+          },
+        },
+      },
+    },
+  });
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (email !== undefined) updateData.email = email;
-    if (phone !== undefined) updateData.phone = phone;
-    if (cpfCnpj !== undefined) updateData.cpfCnpj = cpfCnpj;
-    if (address !== undefined) updateData.address = address;
-    if (notes !== undefined) updateData.notes = notes;
-    if (status !== undefined) updateData.status = status;
-
-    const customer = await prisma.customer.update({
-      where: { id },
-      data: updateData
-    });
-
-    return NextResponse.json(customer);
-  } catch (error: any) {
-    console.error("ERRO PATCH CUSTOMER:", error.message);
-    return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
+  if (!customer) {
+    return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
   }
+
+  return NextResponse.json(customer);
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const body = await req.json();
+
+  const { name, email, phone, cpfCnpj, address, notes, status, source, pipelineStage } = body;
+
+  const customer = await prisma.customer.update({
+    where: { id },
+    data: {
+      ...(name !== undefined && { name }),
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone }),
+      ...(cpfCnpj !== undefined && { cpfCnpj }),
+      ...(address !== undefined && { address }),
+      ...(notes !== undefined && { notes }),
+      ...(status !== undefined && { status }),
+      ...(source !== undefined && { source }),
+      ...(pipelineStage !== undefined && { pipelineStage }),
+    },
+  });
+
+  return NextResponse.json(customer);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  await prisma.customer.delete({ where: { id } });
+
+  return NextResponse.json({ ok: true });
 }

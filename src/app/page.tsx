@@ -24,7 +24,8 @@ import {
   LucideInbox,
   LucideAlertOctagon,
   LucideCheckSquare,
-  LucideSearch
+  LucideSearch,
+  LucideBarChart3
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import DesktopLicensesView from "./DesktopLicensesView";
@@ -32,6 +33,8 @@ import WebLicensesView from "./WebLicensesView";
 import UsersView from "./UsersView";
 import CRMView from "./CRMView";
 import SupportView from "./SupportView";
+import SupportReportsView from "./SupportReportsView";
+import InboxView from "./InboxView";
 
 interface License {
   sourceDbId: string;
@@ -79,11 +82,13 @@ export default function HubDashboard() {
   const [intervalMs, setIntervalMs] = useState(60000);
   const [showIntervalPicker, setShowIntervalPicker] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'users' | 'crm' | 'suporte'>('hub');
+  const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'users' | 'crm' | 'suporte' | 'inbox'>('hub');
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [userRole, setUserRole] = useState<string>('CUSTOMER');
   const [supportFilter, setSupportFilter] = useState<'UNSOLVED' | 'OPEN' | 'URGENT' | 'CLOSED' | 'ALL'>('UNSOLVED');
   const [supportSearch, setSupportSearch] = useState('');
+  const [supportSubView, setSupportSubView] = useState<'tickets' | 'reports'>('tickets');
+  const [supportResetKey, setSupportResetKey] = useState(0);
   const [zoom, setZoom] = useState(100);
   const [showZoomPanel, setShowZoomPanel] = useState(false);
   const router = useRouter();
@@ -183,13 +188,13 @@ export default function HubDashboard() {
           <div className="relative inline-block group mb-3">
             <img
               src="/logo.png"
-              alt="Nexus CRM Logo"
+              alt="WORK360"
               className="h-10 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute -top-1 -right-3 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#131416] animate-pulse" />
           </div>
           <div className="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
-            <span className="text-[8px] text-slate-500 font-bold tracking-[0.2em] uppercase">CRM 1.0.1</span>
+            <span className="text-[8px] text-slate-500 font-bold tracking-[0.2em] uppercase">v1.1.0</span>
             {isSimulated && (
               <span className="text-[8px] text-amber-500/80 font-bold tracking-[0.2em] uppercase animate-pulse">
                 SIMULAÇÃO
@@ -205,8 +210,17 @@ export default function HubDashboard() {
             onClick={() => setActiveTab('hub')}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'hub' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
           >
-            <LucideServer size={15} /> NEXUS HUB
+            <LucideServer size={15} /> WORK360 HUB
           </button>
+
+          {(userRole === 'SUPER_ADMIN' || userRole === 'SUPPORT' || userRole === 'ADMIN') && (
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'inbox' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
+            >
+              <LucideInbox size={15} /> Caixa de Entrada
+            </button>
+          )}
 
           {(userRole === 'SUPER_ADMIN' || userRole === 'SUPPORT' || userRole === 'ADMIN') && (
             <button
@@ -255,44 +269,53 @@ export default function HubDashboard() {
               {activeTab === 'suporte' && (
                 <div className="mt-1 ml-3 pl-3 border-l border-indigo-500/20 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-2 duration-200">
                   <button
-                    onClick={() => setSupportFilter('UNSOLVED')}
+                    onClick={() => { setSupportSubView('tickets'); setSupportFilter('UNSOLVED'); setSupportResetKey(k => k+1); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
-                      supportFilter === 'UNSOLVED' ? 'text-indigo-300 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      supportSubView === 'tickets' && supportFilter === 'UNSOLVED' ? 'text-indigo-300 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                     }`}
                   >
                     <LucideInbox size={12} /> Não Resolvidos
                   </button>
                   <button
-                    onClick={() => setSupportFilter('OPEN')}
+                    onClick={() => { setSupportSubView('tickets'); setSupportFilter('OPEN'); setSupportResetKey(k => k+1); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
-                      supportFilter === 'OPEN' ? 'text-blue-300 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      supportSubView === 'tickets' && supportFilter === 'OPEN' ? 'text-blue-300 bg-blue-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                     }`}
                   >
                     <LucideActivity size={12} /> Novos / Abertos
                   </button>
                   <button
-                    onClick={() => setSupportFilter('URGENT')}
+                    onClick={() => { setSupportSubView('tickets'); setSupportFilter('URGENT'); setSupportResetKey(k => k+1); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
-                      supportFilter === 'URGENT' ? 'text-rose-300 bg-rose-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      supportSubView === 'tickets' && supportFilter === 'URGENT' ? 'text-rose-300 bg-rose-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                     }`}
                   >
                     <LucideAlertOctagon size={12} /> Urgentes
                   </button>
                   <button
-                    onClick={() => setSupportFilter('CLOSED')}
+                    onClick={() => { setSupportSubView('tickets'); setSupportFilter('CLOSED'); setSupportResetKey(k => k+1); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
-                      supportFilter === 'CLOSED' ? 'text-slate-300 bg-white/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      supportSubView === 'tickets' && supportFilter === 'CLOSED' ? 'text-slate-300 bg-white/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                     }`}
                   >
                     <LucideCheckSquare size={12} /> Fechados
                   </button>
                   <button
-                    onClick={() => setSupportFilter('ALL')}
+                    onClick={() => { setSupportSubView('tickets'); setSupportFilter('ALL'); setSupportResetKey(k => k+1); }}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
-                      supportFilter === 'ALL' ? 'text-slate-300 bg-white/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      supportSubView === 'tickets' && supportFilter === 'ALL' ? 'text-slate-300 bg-white/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                     }`}
                   >
                     <LucideMessageSquare size={12} /> Todos
+                  </button>
+                  <div className="h-px bg-white/5 my-1" />
+                  <button
+                    onClick={() => { setSupportSubView('reports'); setSupportResetKey(k => k+1); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all ${
+                      supportSubView === 'reports' ? 'text-indigo-300 bg-indigo-500/10' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <LucideBarChart3 size={12} /> Relatórios
                   </button>
                 </div>
               )}
@@ -355,15 +378,16 @@ export default function HubDashboard() {
           <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
             <div>
               <h1 className="text-2xl font-black uppercase tracking-[0.2em] text-white mb-2">
-                {activeTab === 'hub' ? 'NEXUS HUB - Operações' :
+                {activeTab === 'hub' ? 'WORK360 — Operações' :
                  activeTab === 'web' ? 'Licenças Web' :
                   activeTab === 'desktop' ? 'Controle de Licenças' :
                     activeTab === 'crm' ? 'Gestão de Clientes' :
                   activeTab === 'suporte' ? 'Central de Suporte' :
+                  activeTab === 'inbox' ? 'Caixa de Entrada' :
                       'Segurança e Acessos'}
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                {activeTab === 'suporte' ? 'Fila de atendimento em tempo real' : 'Plataforma NEXUS-CRM'}
+                {activeTab === 'suporte' ? 'Fila de atendimento em tempo real' : 'Plataforma WORK360 · v1.1.0'}
               </p>
             </div>
 
@@ -637,8 +661,12 @@ export default function HubDashboard() {
             <DesktopLicensesView />
           ) : activeTab === 'crm' ? (
             <CRMView />
+          ) : activeTab === 'inbox' ? (
+            <InboxView />
           ) : activeTab === 'suporte' ? (
-            <SupportView currentViewFilter={supportFilter} onFilterChange={setSupportFilter} searchTerm={supportSearch} onSearchChange={setSupportSearch} />
+            supportSubView === 'reports'
+              ? <SupportReportsView />
+              : <SupportView currentViewFilter={supportFilter} onFilterChange={setSupportFilter} searchTerm={supportSearch} onSearchChange={setSupportSearch} resetKey={supportResetKey} />
           ) : (
             <UsersView />
           )}
@@ -646,7 +674,7 @@ export default function HubDashboard() {
           {/* FOOTER BAR */}
           <footer className="mt-16 flex flex-col md:flex-row items-center justify-between gap-6 py-8 border-t border-white/[0.05]">
             <p className="text-[8px] font-bold text-slate-600 uppercase tracking-[0.3em]">
-              © {new Date().getFullYear()} NEXUS-CRM / Inteligência Central
+              © {new Date().getFullYear()} WORK360 · Plataforma 360°
             </p>
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-2">

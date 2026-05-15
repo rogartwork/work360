@@ -1,20 +1,12 @@
+"use client";
+
 import { useState, useEffect, useCallback } from "react";
-import { 
-  LucideUser, 
-  LucidePlus, 
-  LucideActivity, 
-  LucidePhone, 
-  LucideMail, 
-  LucideFileText, 
-  LucideSearch,
-  LucideUsers,
-  LucideTag,
-  LucideMapPin,
-  LucideCalendar,
-  LucideEdit,
-  LucideList,
-  LucideLayoutGrid,
-  LucideMessageSquare
+import {
+  LucideUser, LucidePlus, LucideActivity, LucidePhone, LucideMail,
+  LucideFileText, LucideSearch, LucideUsers, LucideTag, LucideMapPin,
+  LucideCalendar, LucideEdit, LucideList, LucideLayoutGrid,
+  LucideMessageSquare, LucideSmartphone, LucideGlobe, LucideShield,
+  LucideTicket, LucideFilter
 } from "lucide-react";
 import CustomerProfile from "./CustomerProfile";
 
@@ -25,13 +17,58 @@ interface Customer {
   phone: string | null;
   cpfCnpj: string | null;
   status: string;
-  affiliate?: {
-    referralCode: string;
-  };
-  _count: {
-    licenses: number;
-  };
+  source: string;
+  pipelineStage: string;
+  affiliate?: { referralCode: string };
+  licenses: Array<{ isActive: boolean; expiresAt: string | null }>;
+  webLicenses: Array<{ isActive: boolean; expiresAt: string | null }>;
+  Ticket: Array<{ status: string }>;
+  interactionLogs: Array<{ createdAt: string }>;
+  _count: { licenses: number };
   createdAt: string;
+  updatedAt: string;
+}
+
+type StatusFilter = "ALL" | "ACTIVE" | "LEAD" | "INACTIVE";
+type SourceFilter = "ALL" | "MANUAL" | "WHATSAPP" | "API";
+
+function SourceIcon({ source }: { source: string }) {
+  if (source === "WHATSAPP") return <LucideSmartphone size={11} className="text-emerald-400" />;
+  if (source === "API") return <LucideGlobe size={11} className="text-blue-400" />;
+  return <LucideUser size={11} className="text-slate-500" />;
+}
+
+function LicenseBadge({ licenses, webLicenses }: { licenses: any[]; webLicenses: any[] }) {
+  const all = [...licenses, ...webLicenses];
+  const active = all.filter(l => l.isActive && (!l.expiresAt || new Date(l.expiresAt) > new Date()));
+  const expiringSoon = all.filter(l => {
+    if (!l.expiresAt || !l.isActive) return false;
+    const days = Math.ceil((new Date(l.expiresAt).getTime() - Date.now()) / 86400000);
+    return days >= 0 && days <= 7;
+  });
+
+  if (all.length === 0) return <span className="text-[9px] text-slate-700 font-bold uppercase">Sem licença</span>;
+  if (expiringSoon.length > 0) return (
+    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+      Expira em breve
+    </span>
+  );
+  if (active.length > 0) return (
+    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+      {active.length} ativa{active.length > 1 ? "s" : ""}
+    </span>
+  );
+  return <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20">Expirada</span>;
+}
+
+function fmtRelative(iso: string) {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Hoje";
+  if (days === 1) return "Ontem";
+  if (days < 30) return `${days}d atrás`;
+  return d.toLocaleDateString("pt-BR");
 }
 
 export default function CRMView() {
@@ -39,113 +76,58 @@ export default function CRMView() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    cpfCnpj: "",
-    address: "",
-    notes: ""
-  });
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("ALL");
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", cpfCnpj: "", address: "", notes: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    e.dataTransfer.setData("customerId", id);
-  };
+  const handleDragStart = (e: React.DragEvent, id: string) => { e.dataTransfer.setData("customerId", id); };
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
   const handleDrop = async (e: React.DragEvent, status: string) => {
     e.preventDefault();
-    const customerId = e.dataTransfer.getData("customerId");
-    if (!customerId) return;
-    
-    // Otimista
-    setCustomers(customers.map(c => c.id === customerId ? { ...c, status } : c));
-    
-    try {
-      await fetch(`/api/customers/${customerId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
-      });
-    } catch(err) {
-      fetchCustomers(); // reverte
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleOpenCreateModal = () => {
-    setEditingCustomerId(null);
-    setFormData({ name: "", email: "", phone: "", cpfCnpj: "", address: "", notes: "" });
-    setShowModal(true);
-  };
-
-  const handleOpenEditModal = async (customer: Customer) => {
-    setEditingCustomerId(customer.id);
-    
-    // We need to fetch full customer details if some are missing in the list view (like address, notes)
-    // But we can pre-fill what we have. Let's pre-fill and maybe fetch more later if needed.
-    // For now, we will fetch the full customer to populate the form correctly.
-    try {
-      const res = await fetch(`/api/customers`);
-      if (res.ok) {
-         const all = await res.json();
-         const fullCust = all.find((c: any) => c.id === customer.id);
-         if (fullCust) {
-            setFormData({
-              name: fullCust.name || "",
-              email: fullCust.email || "",
-              phone: fullCust.phone || "",
-              cpfCnpj: fullCust.cpfCnpj || "",
-              address: fullCust.address || "",
-              notes: fullCust.notes || ""
-            });
-         }
-      }
-    } catch(e){}
-    
-    setShowModal(true);
+    const id = e.dataTransfer.getData("customerId");
+    if (!id) return;
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, status } : c));
+    await fetch(`/api/customers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
   };
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/customers");
-      if (res.ok) {
-        setCustomers(await res.json());
-      }
-    } catch (err) {
-      console.error(err);
+      if (res.ok) setCustomers(await res.json());
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers]);
+  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+
+  const handleOpenEditModal = async (customer: Customer) => {
+    setEditingCustomerId(customer.id);
+    try {
+      const res = await fetch(`/api/customers/${customer.id}`);
+      if (res.ok) {
+        const full = await res.json();
+        setFormData({ name: full.name ?? "", email: full.email ?? "", phone: full.phone ?? "", cpfCnpj: full.cpfCnpj ?? "", address: full.address ?? "", notes: full.notes ?? "" });
+      }
+    } catch { }
+    setShowModal(true);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSubmitting(true);
-
     try {
       const url = editingCustomerId ? `/api/customers/${editingCustomerId}` : "/api/customers";
-      const method = editingCustomerId ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
+      const method = editingCustomerId ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
       if (res.ok) {
         setShowModal(false);
         setEditingCustomerId(null);
@@ -153,251 +135,240 @@ export default function CRMView() {
         fetchCustomers();
       } else {
         const data = await res.json();
-        setError(data.error || "Erro ao criar cliente");
+        setError(data.error || "Erro ao salvar cliente");
       }
-    } catch (err) {
-      setError("Erro de rede ao conectar ao servidor.");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setError("Erro de rede."); }
+    finally { setSubmitting(false); }
   };
 
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.cpfCnpj?.includes(searchTerm)
-  );
+  const filtered = customers.filter(c => {
+    const matchSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.phone ?? "").includes(searchTerm) ||
+      (c.cpfCnpj ?? "").includes(searchTerm);
+    const matchStatus = statusFilter === "ALL" || c.status === statusFilter;
+    const matchSource = sourceFilter === "ALL" || c.source === sourceFilter;
+    return matchSearch && matchStatus && matchSource;
+  });
+
+  const statsData = [
+    { label: "Total", val: customers.length, color: "text-blue-400", icon: LucideUsers },
+    { label: "Ativos", val: customers.filter(c => c.status === "ACTIVE").length, color: "text-emerald-400", icon: LucideActivity },
+    { label: "Leads", val: customers.filter(c => c.status === "LEAD").length, color: "text-amber-400", icon: LucideTag },
+    { label: "Via WhatsApp", val: customers.filter(c => c.source === "WHATSAPP").length, color: "text-green-400", icon: LucideSmartphone },
+  ];
+
+  const statusPills: Array<{ id: StatusFilter; label: string }> = [
+    { id: "ALL", label: "Todos" }, { id: "ACTIVE", label: "Ativos" },
+    { id: "LEAD", label: "Leads" }, { id: "INACTIVE", label: "Inativos" },
+  ];
+
+  const sourcePills: Array<{ id: SourceFilter; label: string }> = [
+    { id: "ALL", label: "Qualquer origem" }, { id: "MANUAL", label: "Manual" },
+    { id: "WHATSAPP", label: "WhatsApp" }, { id: "API", label: "API" },
+  ];
 
   return (
     <section className="animate-in fade-in duration-500">
-      {/* Header Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
         <div>
           <h2 className="text-2xl font-black text-slate-100 uppercase tracking-widest flex items-center gap-3">
-            <LucideUsers size={24} className="text-blue-500" /> Gestão de Clientes (CRM)
+            <LucideUsers size={24} className="text-blue-500" /> CRM · Clientes
           </h2>
-          <p className="text-xs text-slate-500 mt-1 font-bold">Base centralizada de licenças, faturamento e leads</p>
+          <p className="text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-widest">Base centralizada · leads · licenças · faturamento</p>
         </div>
-        
-        <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="flex items-center gap-3">
           <div className="flex bg-white/5 rounded-xl p-1">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
-              title="Visão em Lista"
-            >
-              <LucideList size={16} />
+            <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-blue-500 text-white" : "text-slate-500 hover:text-slate-300"}`} title="Lista">
+              <LucideList size={15} />
             </button>
-            <button
-              onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-slate-500 hover:text-slate-300'}`}
-              title="Visão Kanban (Funil)"
-            >
-              <LucideLayoutGrid size={16} />
+            <button onClick={() => setViewMode("kanban")} className={`p-1.5 rounded-lg transition-all ${viewMode === "kanban" ? "bg-blue-500 text-white" : "text-slate-500 hover:text-slate-300"}`} title="Kanban">
+              <LucideLayoutGrid size={15} />
             </button>
           </div>
-
-          <div className="relative flex-1 md:w-64">
-            <LucideSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-            <input 
-              type="text" 
-              placeholder="Buscar por nome, email ou CPF..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500/50 transition-all"
-            />
-          </div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all whitespace-nowrap"
-          >
-            <LucidePlus size={16} /> Novo Cliente
+          <button onClick={() => { setEditingCustomerId(null); setFormData({ name: "", email: "", phone: "", cpfCnpj: "", address: "", notes: "" }); setShowModal(true); }}
+            className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all">
+            <LucidePlus size={14} /> Novo Cliente
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-blue-500/5 to-transparent">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
-              <LucideUsers size={18} />
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {statsData.map((s, i) => (
+          <div key={i} className="glass-panel p-4 rounded-2xl flex items-center gap-3">
+            <div className={`p-2 rounded-lg bg-white/5 ${s.color}`}><s.icon size={16} /></div>
+            <div>
+              <p className={`text-xl font-black ${s.color}`}>{s.val}</p>
+              <p className="text-[9px] text-slate-600 font-bold uppercase">{s.label}</p>
             </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total de Clientes</span>
           </div>
-          <h3 className="text-2xl font-black text-white">{customers.length}</h3>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <div className="relative">
+          <LucideSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-[11px] text-white outline-none focus:border-blue-500/40 w-52 transition-colors" />
         </div>
-        <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-emerald-500/5 to-transparent">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-              <LucideActivity size={18} />
-            </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Clientes Ativos</span>
-          </div>
-          <h3 className="text-2xl font-black text-white">{customers.filter(c => c.status === 'ACTIVE').length}</h3>
+        <div className="flex gap-1">
+          {statusPills.map(p => (
+            <button key={p.id} onClick={() => setStatusFilter(p.id)}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${statusFilter === p.id ? "bg-blue-500/20 text-blue-400 border border-blue-500/20" : "bg-white/[0.03] text-slate-500 hover:text-slate-300 border border-transparent"}`}>
+              {p.label}
+            </button>
+          ))}
         </div>
-        <div className="glass-panel p-5 rounded-2xl border border-white/5 bg-gradient-to-br from-purple-500/5 to-transparent">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-              <LucideFileText size={18} />
-            </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Licenças Emitidas</span>
-          </div>
-          <h3 className="text-2xl font-black text-white">{customers.reduce((acc, c) => acc + c._count.licenses, 0)}</h3>
+        <div className="flex gap-1 ml-2 pl-2 border-l border-white/5">
+          {sourcePills.map(p => (
+            <button key={p.id} onClick={() => setSourceFilter(p.id)}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${sourceFilter === p.id ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/20" : "bg-white/[0.03] text-slate-500 hover:text-slate-300 border border-transparent"}`}>
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* View Content */}
-      {viewMode === 'list' ? (
+      {/* List View */}
+      {viewMode === "list" ? (
         <div className="glass-panel rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
           <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 border-b border-white/5">
-                <th className="px-8 py-5">Status</th>
-                <th className="px-6 py-5">Cliente / CPF-CNPJ</th>
-                <th className="px-6 py-5">Contato</th>
-                <th className="px-6 py-5">Origem (Afiliado)</th>
-                <th className="px-6 py-5 text-center">Licenças</th>
-                <th className="px-8 py-5 text-right">Cadastro</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.05]">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-24 text-center">
-                    <LucideActivity size={48} className="mx-auto text-blue-900/30 mb-4 animate-spin" />
-                    <p className="text-slate-600 font-bold uppercase tracking-widest text-sm">Consultando Base SaaS...</p>
-                  </td>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 border-b border-white/5">
+                  <th className="px-5 py-4">Cliente</th>
+                  <th className="px-4 py-4">Contato</th>
+                  <th className="px-4 py-4">Canal</th>
+                  <th className="px-4 py-4">Licença</th>
+                  <th className="px-4 py-4 text-center">Chamados</th>
+                  <th className="px-4 py-4">Último contato</th>
+                  <th className="px-4 py-4 text-right">Ações</th>
                 </tr>
-              ) : filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-24 text-center">
-                    <p className="text-slate-600 font-bold uppercase tracking-widest text-sm">Nenhum cliente localizado.</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="group hover:bg-white/[0.01] transition-all duration-300">
-                    <td className="px-8 py-4">
-                      <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest inline-block ${
-                        customer.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                      }`}>
-                        {customer.status}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
-                          <LucideUser size={16} />
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {loading ? (
+                  <tr><td colSpan={7} className="py-20 text-center">
+                    <LucideActivity size={32} className="mx-auto text-slate-800 animate-spin mb-3" />
+                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Carregando...</p>
+                  </td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="py-20 text-center">
+                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Nenhum cliente encontrado</p>
+                  </td></tr>
+                ) : filtered.map(customer => {
+                  const openTickets = (customer.Ticket ?? []).filter(t => t.status !== "CLOSED").length;
+                  const lastContact = customer.interactionLogs?.[0]?.createdAt ?? customer.updatedAt;
+                  return (
+                    <tr key={customer.id} className="group hover:bg-white/[0.015] transition-all">
+                      <td className="px-5 py-3">
+                        <button onClick={() => setProfileCustomerId(customer.id)} className="flex items-center gap-3 text-left">
+                          <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0">
+                            <LucideUser size={13} />
+                          </div>
+                          <div>
+                            <p className="font-black text-[11px] text-white group-hover:text-blue-400 transition-colors uppercase">{customer.name}</p>
+                            <p className="text-[9px] text-slate-600 font-mono">{customer.cpfCnpj || customer.id.slice(0, 8)}</p>
+                          </div>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 text-slate-500">
+                            <LucideMail size={10} className="text-blue-500/50" />
+                            <span className="text-[9px] font-bold truncate max-w-[140px]">{customer.email}</span>
+                          </div>
+                          {customer.phone && (
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                              <LucidePhone size={10} className="text-emerald-500/50" />
+                              <span className="text-[9px] font-bold">{customer.phone}</span>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <p className="font-black text-[12px] text-white group-hover:text-blue-400 transition-colors uppercase leading-none">{customer.name}</p>
-                          <p className="text-[10px] text-slate-500 font-mono mt-1">{customer.cpfCnpj || 'CPF NÃO INFORMADO'}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <SourceIcon source={customer.source} />
+                          <span className={`text-[9px] font-black uppercase ${customer.source === "WHATSAPP" ? "text-emerald-400" : customer.source === "API" ? "text-blue-400" : "text-slate-500"}`}>
+                            {customer.source ?? "MANUAL"}
+                          </span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-200 transition-colors">
-                          <LucideMail size={12} className="text-blue-500/50" />
-                          <span className="text-[10px] font-bold">{customer.email}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <LicenseBadge licenses={customer.licenses ?? []} webLicenses={customer.webLicenses ?? []} />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {openTickets > 0 ? (
+                          <button onClick={() => setProfileCustomerId(customer.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 text-[9px] font-black hover:bg-indigo-500/20 transition-colors">
+                            <LucideTicket size={10} /> {openTickets}
+                          </button>
+                        ) : (
+                          <span className="text-[9px] text-slate-700 font-bold">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[9px] text-slate-500 font-bold">{fmtRelative(lastContact)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => setProfileCustomerId(customer.id)}
+                            className="px-2 py-1 rounded-lg bg-white/5 hover:bg-purple-500/10 text-slate-500 hover:text-purple-400 text-[9px] font-bold transition-colors">
+                            360°
+                          </button>
+                          <button onClick={() => handleOpenEditModal(customer)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-blue-500/10 text-slate-500 hover:text-blue-400 text-[9px] font-bold transition-colors">
+                            <LucideEdit size={10} /> Editar
+                          </button>
                         </div>
-                        <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-200 transition-colors">
-                          <LucidePhone size={12} className="text-emerald-500/50" />
-                          <span className="text-[10px] font-bold">{customer.phone || '—'}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {customer.affiliate ? (
-                        <div className="flex items-center gap-2">
-                          <LucideTag size={12} className="text-amber-500/50" />
-                          <span className="text-[10px] font-black text-amber-500/80 uppercase">{customer.affiliate.referralCode}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[9px] font-bold text-slate-700 uppercase tracking-tighter">Venda Direta</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] font-black text-blue-400">
-                        {customer._count.licenses}
-                      </span>
-                    </td>
-                    <td className="px-8 py-4 text-right">
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex items-center gap-1.5 text-slate-500">
-                          <LucideCalendar size={10} />
-                          <span className="text-[10px] font-bold">{new Date(customer.createdAt).toLocaleDateString('pt-BR')}</span>
-                        </div>
-                        <button
-                          onClick={() => handleOpenEditModal(customer)}
-                          className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-blue-500/10 text-slate-400 hover:text-blue-400 rounded-md transition-colors text-[9px] font-bold uppercase"
-                        >
-                          <LucideEdit size={10} /> Editar
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* Kanban */
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start min-h-[500px]">
+          {[
+            { id: "LEAD", title: "Leads", color: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-500/5" },
+            { id: "ACTIVE", title: "Ativos", color: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-500/5" },
+            { id: "INACTIVE", title: "Inativos / Perdidos", color: "text-rose-400", border: "border-rose-500/20", bg: "bg-rose-500/5" },
+          ].map(col => (
+            <div key={col.id} onDrop={e => handleDrop(e, col.id)} onDragOver={handleDragOver}
+              className={`flex flex-col rounded-3xl border ${col.border} ${col.bg} p-4 min-h-[200px]`}>
+              <h3 className={`text-[9px] font-black uppercase tracking-widest mb-4 flex items-center justify-between ${col.color}`}>
+                {col.title}
+                <span className="px-2 py-0.5 rounded-full bg-white/5 text-white text-[9px]">
+                  {filtered.filter(c => c.status === col.id).length}
+                </span>
+              </h3>
+              <div className="space-y-3">
+                {filtered.filter(c => c.status === col.id).map(c => (
+                  <div key={c.id} draggable onDragStart={e => handleDragStart(e, c.id)} onClick={() => setProfileCustomerId(c.id)}
+                    className="glass-panel p-4 rounded-2xl cursor-grab active:cursor-grabbing hover:border-blue-500/20 border border-white/[0.02] transition-all group">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="font-black text-[11px] text-white group-hover:text-blue-400 transition-colors uppercase leading-tight">{c.name}</p>
+                      <div className="flex items-center gap-1">
+                        <SourceIcon source={c.source} />
+                        <button onClick={e => { e.stopPropagation(); handleOpenEditModal(c); }} className="text-slate-700 hover:text-white p-1 ml-1">
+                          <LucideEdit size={11} />
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-[600px] overflow-hidden">
-          {[
-            { id: 'LEAD', title: 'Leads / Negociação', color: 'text-slate-400', bg: 'bg-white/[0.02]', border: 'border-white/5' },
-            { id: 'ACTIVE', title: 'Ativos / Vendido', color: 'text-emerald-400', bg: 'bg-emerald-500/5', border: 'border-emerald-500/20' },
-            { id: 'INACTIVE', title: 'Inativos / Perdidos', color: 'text-rose-400', bg: 'bg-rose-500/5', border: 'border-rose-500/20' }
-          ].map(col => (
-            <div 
-              key={col.id} 
-              onDrop={(e) => handleDrop(e, col.id)}
-              onDragOver={handleDragOver}
-              className={`flex flex-col h-full rounded-3xl border ${col.border} ${col.bg} p-4 transition-all duration-300 overflow-hidden`}
-            >
-              <h3 className={`text-[10px] font-black uppercase tracking-widest mb-4 flex items-center justify-between ${col.color}`}>
-                {col.title}
-                <span className="px-2 py-0.5 rounded-full bg-white/5 text-white">{filteredCustomers.filter(c => c.status === col.id).length}</span>
-              </h3>
-              
-              <div className="flex-1 overflow-y-auto space-y-3 pb-4 scroll-smooth">
-                {filteredCustomers.filter(c => c.status === col.id).map(customer => (
-                  <div 
-                    key={customer.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, customer.id)}
-                    onClick={() => setProfileCustomerId(customer.id)}
-                    className="glass-panel p-4 rounded-2xl cursor-grab active:cursor-grabbing hover:scale-[1.02] transition-all border border-white/[0.02] hover:border-blue-500/30 group"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-black text-xs text-white uppercase group-hover:text-blue-400 transition-colors leading-tight">{customer.name}</p>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleOpenEditModal(customer); }}
-                        className="text-slate-600 hover:text-white p-1"
-                      >
-                        <LucideEdit size={12} />
-                      </button>
                     </div>
-                    <p className="text-[9px] text-slate-500 font-bold mb-3">{customer.email}</p>
-                    
-                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
-                      <div className="flex items-center gap-1.5 text-slate-500">
-                        <LucideActivity size={10} className="text-blue-500/50" />
-                        <span className="text-[9px] font-bold uppercase">{customer._count.licenses} Licenças</span>
-                      </div>
-                      <span className="text-[8px] font-bold text-slate-600 tracking-widest uppercase">
-                        {new Date(customer.createdAt).toLocaleDateString('pt-BR')}
-                      </span>
+                    <p className="text-[9px] text-slate-600 truncate mb-3">{c.email}</p>
+                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                      <LicenseBadge licenses={c.licenses ?? []} webLicenses={c.webLicenses ?? []} />
+                      <span className="text-[8px] text-slate-700">{fmtRelative(c.updatedAt)}</span>
                     </div>
                   </div>
                 ))}
-                {filteredCustomers.filter(c => c.status === col.id).length === 0 && (
-                  <div className="h-24 border-2 border-dashed border-white/10 rounded-2xl flex items-center justify-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                    Soltar Aqui
-                  </div>
+                {filtered.filter(c => c.status === col.id).length === 0 && (
+                  <div className="h-20 border-2 border-dashed border-white/10 rounded-2xl flex items-center justify-center text-[9px] font-bold text-slate-700 uppercase">Soltar aqui</div>
                 )}
               </div>
             </div>
@@ -405,110 +376,54 @@ export default function CRMView() {
         </div>
       )}
 
-      {/* Modal Criar Cliente */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowModal(false)} />
-          <div className="relative glass-panel w-full max-w-2xl rounded-[2.5rem] border border-white/10 p-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-            <h3 className="text-2xl font-black uppercase tracking-[0.2em] text-white mb-8 flex items-center gap-3">
-              <LucidePlus className="text-blue-500" /> {editingCustomerId ? "Editar Cliente" : "Cadastrar Novo Cliente"}
+          <div className="relative glass-panel w-full max-w-xl rounded-[2rem] border border-white/10 p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black uppercase tracking-widest text-white mb-6 flex items-center gap-3">
+              <LucidePlus className="text-blue-500" size={20} />
+              {editingCustomerId ? "Editar Cliente" : "Novo Cliente"}
             </h3>
-            
-            {error && (
-              <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold text-center">
-                {error}
+            {error && <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-bold">{error}</div>}
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: "Nome Completo", key: "name", type: "text", required: true },
+                  { label: "E-mail", key: "email", type: "email", required: true },
+                  { label: "Telefone / WhatsApp", key: "phone", type: "text", required: false },
+                  { label: "CPF ou CNPJ", key: "cpfCnpj", type: "text", required: false },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
+                    <input type={f.type} required={f.required} value={(formData as any)[f.key]}
+                      onChange={e => setFormData({ ...formData, [f.key]: e.target.value })}
+                      className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white outline-none focus:border-blue-500/40 transition-colors" />
+                  </div>
+                ))}
               </div>
-            )}
-
-            <form onSubmit={handleCreate} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Nome Completo</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all"
-                    placeholder="Ex: João da Silva"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">E-mail Principal</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all"
-                    placeholder="joao@exemplo.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Telefone / WhatsApp</label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all"
-                    placeholder="5511999999999"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">CPF ou CNPJ</label>
-                  <input
-                    type="text"
-                    value={formData.cpfCnpj}
-                    onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })}
-                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all"
-                    placeholder="000.000.000-00"
-                  />
-                </div>
-              </div>
-              
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Endereço Completo</label>
-                <div className="relative">
-                  <LucideMapPin className="absolute left-4 top-4 text-slate-600" size={18} />
-                  <textarea
-                    rows={2}
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full bg-black/40 border border-white/10 rounded-2xl pl-12 pr-5 py-4 text-sm text-white focus:outline-none focus:border-blue-500/50 transition-all"
-                    placeholder="Rua, Número, Bairro, Cidade - UF"
-                  />
-                </div>
+                <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Endereço</label>
+                <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white outline-none focus:border-blue-500/40 transition-colors" />
               </div>
-
-              <div className="flex gap-4 pt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingCustomerId(null);
-                  }}
-                  className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 font-black text-xs uppercase tracking-[0.2em] transition-all"
-                >
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-black text-[10px] uppercase tracking-widest transition-all">
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 py-4 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-[0.2em] transition-all disabled:opacity-50"
-                >
-                  {submitting ? 'PROCESSANDO...' : (editingCustomerId ? 'SALVAR ALTERAÇÕES' : 'SALVAR NO CRM')}
+                <button type="submit" disabled={submitting}
+                  className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-50">
+                  {submitting ? "Salvando..." : editingCustomerId ? "Salvar" : "Cadastrar"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* Customer 360 Profile Drawer */}
+
       {profileCustomerId && (
-        <CustomerProfile 
-          customerId={profileCustomerId} 
-          onClose={() => setProfileCustomerId(null)} 
-        />
+        <CustomerProfile customerId={profileCustomerId} onClose={() => setProfileCustomerId(null)} />
       )}
     </section>
   );

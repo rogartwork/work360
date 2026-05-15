@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     // Buscar a licença no banco
     const license = await prisma.desktopLicense.findUnique({
       where: { key: key.trim().toUpperCase() },
+      include: { customer: true }
     });
 
     if (!license) {
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
         valid: false,
         status: 'EXPIRADA',
         message: `Licença expirada em ${new Date(license.expiresAt).toLocaleDateString('pt-BR')}. Renove para continuar.`,
-        clientName: license.clientName,
+        clientName: license.customer.name,
         expiresAt: license.expiresAt.toISOString(),
       });
     }
@@ -106,10 +107,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       valid: true,
       status: 'ATIVA',
-      clientName: license.clientName,
+      clientName: license.customer.name,
       expiresAt: license.expiresAt?.toISOString() ?? null,
       plan: license.plan,
-      message: `Licença ativa. Bem-vindo, ${license.clientName}!`,
+      message: `Licença ativa. Bem-vindo, ${license.customer.name}!`,
     });
 
   } catch (err: unknown) {
