@@ -1,8 +1,8 @@
 version: '3.8'
 
 services:
-  nexus-hub:
-    image: ghcr.io/rogartwork/nexus-hub:latest
+  work360-hub:
+    image: ghcr.io/rogartwork/work360:latest
     environment:
       - DATABASE_URL=file:/app/data/hub.db
     volumes:
@@ -17,13 +17,13 @@ services:
         condition: on-failure
       labels:
         - traefik.enable=true
-        - traefik.http.routers.nexus-hub.rule=Host(`nexushub.workmanos.com.br`)
-        - traefik.http.routers.nexus-hub.entrypoints=websecure
-        - traefik.http.routers.nexus-hub.priority=1
-        - traefik.http.routers.nexus-hub.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.nexus-hub.service=nexus-hub
-        - traefik.http.services.nexus-hub.loadbalancer.server.port=3001
-        - traefik.http.services.nexus-hub.loadbalancer.passHostHeader=1
+        - traefik.http.routers.work360-hub.rule=Host(`portal.workmanos.com.br`)
+        - traefik.http.routers.work360-hub.entrypoints=websecure
+        - traefik.http.routers.work360-hub.priority=1
+        - traefik.http.routers.work360-hub.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.work360-hub.service=work360-hub
+        - traefik.http.services.work360-hub.loadbalancer.server.port=3001
+        - traefik.http.services.work360-hub.loadbalancer.passHostHeader=1
 
 volumes:
   nexus-hub-db:
