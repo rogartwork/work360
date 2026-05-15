@@ -243,7 +243,7 @@ export default function UsersView() {
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Nível de Permissão</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, role: 'USER' })}
@@ -265,6 +265,17 @@ export default function UsersView() {
                     }`}
                   >
                     Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, role: 'SUPER_ADMIN' })}
+                    className={`py-3 rounded-xl border text-[10px] font-black tracking-widest uppercase transition-all ${
+                      formData.role === 'SUPER_ADMIN' 
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
+                        : 'bg-white/5 border-white/10 text-slate-500 hover:bg-white/10'
+                    }`}
+                  >
+                    Super Admin
                   </button>
                 </div>
               </div>
