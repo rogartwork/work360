@@ -35,8 +35,8 @@ COPY --from=builder /app/node_modules ./node_modules
 
 RUN mkdir -p /app/data
 
-EXPOSE 3001
-ENV PORT 3001
+EXPOSE 3000
+ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 # No runtime DATABASE_URL é injetada pelo docker-compose
