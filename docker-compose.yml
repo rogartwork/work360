@@ -1,13 +1,13 @@
 version: '3.8'
 
 services:
-  work360-hub:
+  app:
     image: ghcr.io/rogartwork/work360:latest
     environment:
+      - NODE_ENV=production
       - DATABASE_URL=file:/app/data/hub.db
     volumes:
       - nexus-hub-db:/app/data
-      # Agora conectando no volume real da stack gs360
       - gs360_x360-data:/x360-data:ro
     networks:
       - rogartwork
@@ -16,20 +16,19 @@ services:
       restart_policy:
         condition: on-failure
       labels:
-        - traefik.enable=true
-        - traefik.http.routers.work360-hub.rule=Host(`portal.workmanos.com.br`)
-        - traefik.http.routers.work360-hub.entrypoints=websecure
-        - traefik.http.routers.work360-hub.priority=1
-        - traefik.http.routers.work360-hub.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.work360-hub.service=work360-hub
-        - traefik.http.services.work360-hub.loadbalancer.server.port=3001
-        - traefik.http.services.work360-hub.loadbalancer.passHostHeader=1
+        - "traefik.enable=true"
+        - "traefik.docker.network=rogartwork"
+        - "traefik.http.routers.portal_painel.rule=Host(`portal360.workmanos.com.br`)"
+        - "traefik.http.routers.portal_painel.entrypoints=websecure"
+        - "traefik.http.routers.portal_painel.priority=1"
+        - "traefik.http.routers.portal_painel.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.portal_painel.service=portal_painel"
+        - "traefik.http.services.portal_painel.loadbalancer.server.port=3000"
+        - "traefik.http.services.portal_painel.loadbalancer.passHostHeader=true"
 
 volumes:
   nexus-hub-db:
     driver: local
-
-  # Mapeamento do volume externo com o nome real do Swarm
   gs360_x360-data:
     external: true
 

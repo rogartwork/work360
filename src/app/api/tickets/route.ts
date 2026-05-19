@@ -39,6 +39,32 @@ export async function GET() {
     const customer = await resolveCustomer(session.userId);
     if (!customer) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
 
+    // Regra: chamado sem respostas ou interação por parte do cliente no período de 30 dias corridos é excluído automaticamente
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const expiredTickets = await prisma.ticket.findMany({
+      where: {
+        customerId: customer.id,
+        updatedAt: { lt: thirtyDaysAgo }
+      },
+      select: { id: true }
+    });
+
+    if (expiredTickets.length > 0) {
+      const expiredIds = expiredTickets.map(t => t.id);
+      
+      // Excluir as respostas dos expirados
+      await prisma.ticketReply.deleteMany({
+        where: { ticketId: { in: expiredIds } }
+      });
+
+      // Excluir os chamados expirados
+      await prisma.ticket.deleteMany({
+        where: { id: { in: expiredIds } }
+      });
+      
+      console.log(`[TICKETS API] Limpeza automática: ${expiredIds.length} chamados inativos por mais de 30 dias foram excluídos.`);
+    }
+
     // Busca todos os tickets do cliente ordenados por criação para montar numeração
     const allByCustomer = await prisma.ticket.findMany({
       where: { customerId: customer.id },
@@ -93,7 +119,7 @@ export async function POST(req: Request) {
   }
 }
 
-// PUT: Cliente responde a um ticket
+// PUT: Cliente responde a um ticket ou altera status (ex: marcar como resolvido)
 export async function PUT(req: Request) {
   try {
     const session = await getSession();
@@ -101,7 +127,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const { ticketId, message } = await req.json();
+    const { ticketId, message, status } = await req.json();
 
     const customer = await resolveCustomer(session.userId);
     if (!customer) return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
@@ -112,15 +138,63 @@ export async function PUT(req: Request) {
 
     if (!ticket) return NextResponse.json({ error: "Chamado não encontrado" }, { status: 404 });
 
-    const reply = await prisma.ticketReply.create({
-      data: { ticketId, message, isAdmin: false }
-    });
-
-    if (ticket.status !== "OPEN") {
-      await prisma.ticket.update({ where: { id: ticketId }, data: { status: "OPEN" } });
+    if (status) {
+      const updated = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status, updatedAt: new Date() }
+      });
+      return NextResponse.json(updated);
     }
 
-    return NextResponse.json(reply);
+    if (message) {
+      const reply = await prisma.ticketReply.create({
+        data: { ticketId, message, isAdmin: false }
+      });
+
+      await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: "OPEN", updatedAt: new Date() }
+      });
+
+      return NextResponse.json(reply);
+    }
+
+    return NextResponse.json({ error: "Requisição inválida" }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE: Cliente exclui o chamado e todas as suas respostas
+export async function DELETE(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session.isLoggedIn || !session.userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    const { ticketId } = await req.json();
+
+    const customer = await resolveCustomer(session.userId);
+    if (!customer) return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
+
+    const ticket = await prisma.ticket.findFirst({
+      where: { id: ticketId, customerId: customer.id }
+    });
+
+    if (!ticket) return NextResponse.json({ error: "Chamado não encontrado" }, { status: 404 });
+
+    // 1. Excluir todas as respostas do chamado (TicketReply)
+    await prisma.ticketReply.deleteMany({
+      where: { ticketId }
+    });
+
+    // 2. Excluir o chamado (Ticket)
+    await prisma.ticket.delete({
+      where: { id: ticketId }
+    });
+
+    return NextResponse.json({ success: true, message: "Chamado excluído com sucesso" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

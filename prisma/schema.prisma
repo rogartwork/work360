@@ -75,6 +75,7 @@ model DesktopLicense {
   customer   Customer  @relation(fields: [customerId], references: [id])
   plan       String    @default("STANDARD")
   machineId  String?
+  label      String?   // Apelido customizado da licença (ex: PC Escritório)
   isActive   Boolean   @default(true)
   expiresAt  DateTime?
   lastSeenAt DateTime?

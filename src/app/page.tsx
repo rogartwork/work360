@@ -89,6 +89,7 @@ export default function HubDashboard() {
   const [supportSearch, setSupportSearch] = useState('');
   const [supportSubView, setSupportSubView] = useState<'tickets' | 'reports'>('tickets');
   const [supportResetKey, setSupportResetKey] = useState(0);
+  const [openTicketsCount, setOpenTicketsCount] = useState(0);
   const [zoom, setZoom] = useState(100);
   const [showZoomPanel, setShowZoomPanel] = useState(false);
   const router = useRouter();
@@ -157,12 +158,29 @@ export default function HubDashboard() {
     }
   }, []);
 
+  const fetchTicketsCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/tickets");
+      if (res.ok) {
+        const data = await res.json();
+        const openCount = data.filter((t: any) => t.status === "OPEN").length;
+        setOpenTicketsCount(openCount);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSession();
     fetchLicenses();
-    const timer = setInterval(fetchLicenses, intervalMs);
+    fetchTicketsCount();
+    const timer = setInterval(() => {
+      fetchLicenses();
+      fetchTicketsCount();
+    }, intervalMs);
     return () => clearInterval(timer);
-  }, [fetchLicenses, intervalMs]);
+  }, [fetchLicenses, fetchTicketsCount, intervalMs, fetchSession]);
 
   useEffect(() => {
     if (activeTab !== 'hub' && activeTab !== 'suporte') {
@@ -260,9 +278,15 @@ export default function HubDashboard() {
                 onClick={() => setActiveTab('suporte')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'suporte' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
               >
-                <LucideMessageSquare size={15} /> Suporte / Tickets
-                {activeTab === 'suporte' && <LucideChevronDown size={12} className="ml-auto" />}
-                {activeTab !== 'suporte' && <LucideChevronRight size={12} className="ml-auto opacity-30" />}
+                <LucideMessageSquare size={15} className="shrink-0" /> 
+                <span className="flex-1 text-left">Suporte / Tickets</span>
+                {openTicketsCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/30 text-rose-400 text-[8px] font-black mr-1 shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse">
+                    {openTicketsCount}
+                  </span>
+                )}
+                {activeTab === 'suporte' && <LucideChevronDown size={12} className="shrink-0" />}
+                {activeTab !== 'suporte' && <LucideChevronRight size={12} className="opacity-30 shrink-0" />}
               </button>
 
               {/* Sub-filtros — visíveis apenas quando o módulo Suporte está ativo */}
@@ -510,6 +534,7 @@ export default function HubDashboard() {
                           <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
                             <th className="px-8 py-3">STATUS</th>
                             <th className="px-6 py-3">TITULAR | ID LICENÇA</th>
+                            <th className="px-6 py-3">APP</th>
                             <th className="px-6 py-3">TIPO</th>
                             <th className="px-6 py-3">PLANO</th>
                             <th className="px-6 py-3">CHIPS ATIVOS</th>
@@ -548,6 +573,11 @@ export default function HubDashboard() {
                                         <p className="text-[8px] text-slate-600 font-mono mt-1">ID: {truncateId(license.id)}</p>
                                       </div>
                                     </div>
+                                  </td>
+                                  <td className="px-6 py-2">
+                                    <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-[4px]">
+                                      {license.sourceName?.includes('NEXUS') ? 'NEXUS360' : license.sourceName?.includes('X360') ? 'WORK360' : 'WORK360'}
+                                    </span>
                                   </td>
                                   <td className="px-6 py-2">
                                     <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-wider ${

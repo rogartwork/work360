@@ -36,7 +36,7 @@ function CadastroForm() {
       const data = await res.json();
       if (res.ok) {
         setSuccess(true);
-        setTimeout(() => router.push("/login"), 3000);
+        setTimeout(() => router.push("/portalcliente"), 3000);
       } else {
         setError(data.error || "Erro ao criar conta.");
       }
@@ -63,7 +63,7 @@ function CadastroForm() {
                 <LucideCheckCircle size={40} className="text-emerald-400" />
               </div>
               <h2 className="text-2xl font-black uppercase italic mb-2">Conta Criada!</h2>
-              <p className="text-slate-400 text-sm italic mb-8">Redirecionando para o login...</p>
+              <p className="text-slate-400 text-sm italic mb-8">Redirecionando para a sua área...</p>
               <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                 <div className="h-full bg-emerald-500 animate-[progress_3s_linear]" />
               </div>

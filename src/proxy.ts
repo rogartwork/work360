@@ -7,6 +7,7 @@ export function proxy(req: NextRequest) {
   // Permitir acesso à página de login e assets públicos
   if (
     pathname.startsWith("/login") ||
+    pathname.startsWith("/portalcliente/login") ||
     pathname.startsWith("/nexus360") ||
     pathname.includes("_next") ||
     pathname.includes("favicon.ico") ||
@@ -22,8 +23,11 @@ export function proxy(req: NextRequest) {
   // Verificar se o cookie de sessão existe
   const sessionCookie = req.cookies.get("nexus_hub_session");
 
-  // Se não estiver logado, redireciona para login
+  // Se não estiver logado, redireciona para o login correspondente ao portal
   if (!sessionCookie) {
+    if (pathname.startsWith("/portalcliente")) {
+      return NextResponse.redirect(new URL("/portalcliente/login", req.url));
+    }
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

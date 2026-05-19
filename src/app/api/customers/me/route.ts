@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import bcrypt from "bcryptjs";
 
 export async function GET() {
   try {
@@ -20,7 +21,7 @@ export async function GET() {
         },
         subscriptions: {
           orderBy: { createdAt: 'desc' },
-          take: 1
+          take: 10
         }
       }
     });
@@ -37,3 +38,44 @@ export async function GET() {
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const session = await getSession();
+
+    if (!session || !session.isLoggedIn || !session.userId) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    const { name, password } = await req.json();
+
+    // 1. Buscar o cliente vinculado ao usuário
+    const customer = await prisma.customer.findUnique({
+      where: { userId: session.userId }
+    });
+
+    // 2. Atualizar o nome do cliente se enviado e existir perfil
+    if (name && customer) {
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { name }
+      });
+    }
+
+    // 3. Atualizar a senha do usuário se enviada
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await prisma.user.update({
+        where: { id: session.userId },
+        data: { password: hashedPassword }
+      });
+    }
+
+    return NextResponse.json({ success: true, message: "Perfil atualizado com sucesso" });
+
+  } catch (error: any) {
+    console.error("ERRO UPDATE ME:", error.message);
+    return NextResponse.json({ error: "Erro ao atualizar dados" }, { status: 500 });
+  }
+}
+
