@@ -6,7 +6,7 @@ import {
   LucideFileText, LucideSearch, LucideUsers, LucideTag, LucideMapPin,
   LucideCalendar, LucideEdit, LucideList, LucideLayoutGrid,
   LucideMessageSquare, LucideSmartphone, LucideGlobe, LucideShield,
-  LucideTicket, LucideFilter
+  LucideTicket, LucideFilter, LucideTrash2
 } from "lucide-react";
 import CustomerProfile from "./CustomerProfile";
 
@@ -29,7 +29,7 @@ interface Customer {
   updatedAt: string;
 }
 
-type StatusFilter = "ALL" | "ACTIVE" | "LEAD" | "INACTIVE";
+type StatusFilter = "ALL" | "ACTIVE" | "LEAD" | "INACTIVE" | "TRASHED";
 type SourceFilter = "ALL" | "MANUAL" | "WHATSAPP" | "API";
 
 function SourceIcon({ source }: { source: string }) {
@@ -85,6 +85,63 @@ export default function CRMView() {
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
 
+  const handleDeleteCustomer = async (id: string, name: string) => {
+    if (!window.confirm(`Tem certeza que deseja enviar o cliente "${name}" para a lixeira? Ele ficará inativo e poderá ser recuperado nos próximos 60 dias.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setShowModal(false);
+        setEditingCustomerId(null);
+        fetchCustomers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao enviar cliente para a lixeira");
+      }
+    } catch {
+      alert("Erro de conexão ao tentar enviar cliente para a lixeira.");
+    }
+  };
+
+  const handleRestoreCustomer = async (id: string, name: string) => {
+    if (!window.confirm(`Deseja realmente restaurar o cliente "${name}" para a base ativa?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ACTIVE" })
+      });
+      if (res.ok) {
+        fetchCustomers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao restaurar cliente");
+      }
+    } catch {
+      alert("Erro de conexão ao tentar restaurar cliente.");
+    }
+  };
+
+  const handleDeletePermanent = async (id: string, name: string) => {
+    if (!window.confirm(`ATENÇÃO: Tem certeza que deseja excluir PERMANENTEMENTE o cliente "${name}"? Esta ação não pode ser desfeita e removerá todas as licenças, chamados, notas e dados vinculados.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/customers/${id}?permanent=true`, { method: "DELETE" });
+      if (res.ok) {
+        fetchCustomers();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao excluir permanentemente o cliente");
+      }
+    } catch {
+      alert("Erro de conexão ao tentar excluir permanentemente o cliente.");
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, id: string) => { e.dataTransfer.setData("customerId", id); };
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
@@ -99,14 +156,23 @@ export default function CRMView() {
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/customers");
+      const url = statusFilter === "TRASHED" ? "/api/customers?trash=true" : "/api/customers";
+      const res = await fetch(url);
       if (res.ok) setCustomers(await res.json());
+    } catch {
+      // ignore
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
+
+  useEffect(() => {
+    if (statusFilter === "TRASHED") {
+      setViewMode("list");
+    }
+  }, [statusFilter]);
 
   const handleOpenEditModal = async (customer: Customer) => {
     setEditingCustomerId(customer.id);
@@ -146,7 +212,7 @@ export default function CRMView() {
       c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.phone ?? "").includes(searchTerm) ||
       (c.cpfCnpj ?? "").includes(searchTerm);
-    const matchStatus = statusFilter === "ALL" || c.status === statusFilter;
+    const matchStatus = statusFilter === "ALL" || statusFilter === "TRASHED" || c.status === statusFilter;
     const matchSource = sourceFilter === "ALL" || c.source === sourceFilter;
     return matchSearch && matchStatus && matchSource;
   });
@@ -174,38 +240,61 @@ export default function CRMView() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
         <div>
           <h2 className="text-2xl font-black text-slate-100 uppercase tracking-widest flex items-center gap-3">
-            <LucideUsers size={24} className="text-blue-500" /> CRM · Clientes
+            <LucideUsers size={24} className={statusFilter === "TRASHED" ? "text-rose-500" : "text-blue-500"} /> 
+            {statusFilter === "TRASHED" ? "Lixeira de Clientes" : "CRM · Clientes"}
           </h2>
-          <p className="text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-widest">Base centralizada · leads · licenças · faturamento</p>
+          <p className="text-[10px] text-slate-500 mt-1 font-bold uppercase tracking-widest">
+            {statusFilter === "TRASHED" 
+              ? "Clientes inativos · auto-limpeza em 60 dias" 
+              : "Base centralizada · leads · licenças · faturamento"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex bg-white/5 rounded-xl p-1">
+          <button 
+            onClick={() => setStatusFilter(prev => prev === "TRASHED" ? "ALL" : "TRASHED")}
+            className={`p-2.5 rounded-xl transition-all border flex items-center justify-center shrink-0 ${
+              statusFilter === "TRASHED" 
+                ? "bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse" 
+                : "bg-white/5 text-slate-400 hover:text-white border-white/5 hover:bg-white/10"
+            }`}
+            title={statusFilter === "TRASHED" ? "Voltar para Clientes Ativos" : "Ver Lixeira"}
+          >
+            <LucideTrash2 size={15} />
+          </button>
+          <div className="flex bg-white/5 rounded-xl p-1 shrink-0">
             <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-blue-500 text-white" : "text-slate-500 hover:text-slate-300"}`} title="Lista">
               <LucideList size={15} />
             </button>
-            <button onClick={() => setViewMode("kanban")} className={`p-1.5 rounded-lg transition-all ${viewMode === "kanban" ? "bg-blue-500 text-white" : "text-slate-500 hover:text-slate-300"}`} title="Kanban">
+            <button 
+              onClick={() => setViewMode("kanban")} 
+              disabled={statusFilter === "TRASHED"}
+              className={`p-1.5 rounded-lg transition-all ${statusFilter === "TRASHED" ? "opacity-30 cursor-not-allowed text-slate-600" : viewMode === "kanban" ? "bg-blue-500 text-white" : "text-slate-500 hover:text-slate-300"}`} 
+              title={statusFilter === "TRASHED" ? "Visualização Kanban desabilitada na Lixeira" : "Kanban"}
+            >
               <LucideLayoutGrid size={15} />
             </button>
           </div>
           <button onClick={() => { setEditingCustomerId(null); setFormData({ name: "", email: "", phone: "", cpfCnpj: "", address: "", notes: "" }); setShowModal(true); }}
-            className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all">
+            className="px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all shrink-0">
             <LucidePlus size={14} /> Novo Cliente
           </button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {statsData.map((s, i) => (
-          <div key={i} className="glass-panel p-4 rounded-2xl flex items-center gap-3">
-            <div className={`p-2 rounded-lg bg-white/5 ${s.color}`}><s.icon size={16} /></div>
-            <div>
-              <p className={`text-xl font-black ${s.color}`}>{s.val}</p>
-              <p className="text-[9px] text-slate-600 font-bold uppercase">{s.label}</p>
+      {statusFilter !== "TRASHED" && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {statsData.map((s, i) => (
+            <div key={i} className="glass-panel p-4 rounded-2xl flex items-center gap-3">
+              <div className={`p-2 rounded-lg bg-white/5 ${s.color}`}><s.icon size={16} /></div>
+              <div>
+                <p className={`text-xl font-black ${s.color}`}>{s.val}</p>
+                <p className="text-[9px] text-slate-600 font-bold uppercase">{s.label}</p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -318,10 +407,25 @@ export default function CRMView() {
                             className="px-2 py-1 rounded-lg bg-white/5 hover:bg-purple-500/10 text-slate-500 hover:text-purple-400 text-[9px] font-bold transition-colors">
                             360°
                           </button>
-                          <button onClick={() => handleOpenEditModal(customer)}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-blue-500/10 text-slate-500 hover:text-blue-400 text-[9px] font-bold transition-colors">
-                            <LucideEdit size={10} /> Editar
-                          </button>
+                          {statusFilter === "TRASHED" ? (
+                            <>
+                              <button onClick={() => handleRestoreCustomer(customer.id, customer.name)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[9px] font-bold border border-emerald-500/20 transition-all">
+                                Restaurar
+                              </button>
+                              <button onClick={() => handleDeletePermanent(customer.id, customer.name)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[9px] font-bold border border-rose-500/20 transition-all">
+                                <LucideTrash2 size={10} /> Excluir Definitivo
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => handleOpenEditModal(customer)}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-blue-500/10 text-slate-500 hover:text-blue-400 text-[9px] font-bold transition-colors">
+                                <LucideEdit size={10} /> Editar
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -355,7 +459,7 @@ export default function CRMView() {
                       <p className="font-black text-[11px] text-white group-hover:text-blue-400 transition-colors uppercase leading-tight">{c.name}</p>
                       <div className="flex items-center gap-1">
                         <SourceIcon source={c.source} />
-                        <button onClick={e => { e.stopPropagation(); handleOpenEditModal(c); }} className="text-slate-700 hover:text-white p-1 ml-1">
+                        <button onClick={e => { e.stopPropagation(); handleOpenEditModal(c); }} className="text-slate-700 hover:text-white p-1 ml-1" title="Editar">
                           <LucideEdit size={11} />
                         </button>
                       </div>
@@ -407,7 +511,18 @@ export default function CRMView() {
                 <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white outline-none focus:border-blue-500/40 transition-colors" />
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                {editingCustomerId && (
+                  <button type="button" onClick={() => {
+                    const currentCustomer = customers.find(c => c.id === editingCustomerId);
+                    if (currentCustomer) {
+                      handleDeleteCustomer(currentCustomer.id, currentCustomer.name);
+                    }
+                  }}
+                    className="sm:w-1/3 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-rose-500/20">
+                    <LucideTrash2 size={12} /> Excluir
+                  </button>
+                )}
                 <button type="button" onClick={() => setShowModal(false)}
                   className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-black text-[10px] uppercase tracking-widest transition-all">
                   Cancelar

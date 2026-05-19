@@ -28,13 +28,14 @@ import {
   LucideBarChart3
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import DesktopLicensesView from "./DesktopLicensesView";
-import WebLicensesView from "./WebLicensesView";
+import LicensesView from "./LicensesView";
 import UsersView from "./UsersView";
 import CRMView from "./CRMView";
 import SupportView from "./SupportView";
 import SupportReportsView from "./SupportReportsView";
 import InboxView from "./InboxView";
+import AdminView from "./AdminView";
+import { LucideSettings } from "lucide-react";
 
 interface License {
   sourceDbId: string;
@@ -82,7 +83,7 @@ export default function HubDashboard() {
   const [intervalMs, setIntervalMs] = useState(60000);
   const [showIntervalPicker, setShowIntervalPicker] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'users' | 'crm' | 'suporte' | 'inbox'>('hub');
+  const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'licenses' | 'users' | 'crm' | 'suporte' | 'inbox' | 'admin'>('hub');
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [userRole, setUserRole] = useState<string>('CUSTOMER');
   const [supportFilter, setSupportFilter] = useState<'UNSOLVED' | 'OPEN' | 'URGENT' | 'CLOSED' | 'ALL'>('UNSOLVED');
@@ -250,17 +251,10 @@ export default function HubDashboard() {
           )}
 
           <button
-            onClick={() => setActiveTab('desktop')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'desktop' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
+            onClick={() => setActiveTab('licenses')}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'licenses' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
           >
-            <LucideMonitorSmartphone size={15} /> Licenças Desktop
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('web')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'web' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
-          >
-            <LucideGlobe size={15} /> Licenças Web
+            <LucideShieldCheck size={15} /> Gestão de Licenças
           </button>
           
           {(userRole === 'SUPER_ADMIN' || userRole === 'SUPPORT' || userRole === 'ADMIN') && (
@@ -269,6 +263,15 @@ export default function HubDashboard() {
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'users' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
             >
               <LucideShieldCheck size={15} /> Gestão de Acessos
+            </button>
+          )}
+
+          {(userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'admin' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
+            >
+              <LucideSettings size={15} /> Administração
             </button>
           )}
 
@@ -403,11 +406,11 @@ export default function HubDashboard() {
             <div>
               <h1 className="text-2xl font-black uppercase tracking-[0.2em] text-white mb-2">
                 {activeTab === 'hub' ? 'WORK360 — Operações' :
-                 activeTab === 'web' ? 'Licenças Web' :
-                  activeTab === 'desktop' ? 'Controle de Licenças' :
+                 activeTab === 'licenses' ? 'Gestão de Licenças' :
                     activeTab === 'crm' ? 'Gestão de Clientes' :
                   activeTab === 'suporte' ? 'Central de Suporte' :
                   activeTab === 'inbox' ? 'Caixa de Entrada' :
+                  activeTab === 'admin' ? 'Administração SaaS' :
                       'Segurança e Acessos'}
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -685,10 +688,8 @@ export default function HubDashboard() {
                 )}
               </section>
             </>
-          ) : activeTab === 'web' ? (
-            <WebLicensesView />
-          ) : activeTab === 'desktop' ? (
-            <DesktopLicensesView />
+          ) : activeTab === 'licenses' ? (
+            <LicensesView />
           ) : activeTab === 'crm' ? (
             <CRMView />
           ) : activeTab === 'inbox' ? (
@@ -697,6 +698,8 @@ export default function HubDashboard() {
             supportSubView === 'reports'
               ? <SupportReportsView />
               : <SupportView currentViewFilter={supportFilter} onFilterChange={setSupportFilter} searchTerm={supportSearch} onSearchChange={setSupportSearch} resetKey={supportResetKey} />
+          ) : activeTab === 'admin' ? (
+            <AdminView user={{ role: userRole }} />
           ) : (
             <UsersView />
           )}

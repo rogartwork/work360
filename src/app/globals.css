@@ -49,6 +49,16 @@ body {
   box-shadow: 0 8px 32px -1px rgba(0, 0, 0, 0.6);
 }
 
+/* AUTOMATIC MODAL POPUP SOLIDIFICATION (LESS TRANSPARENT FOR HIGH CONTRAST) */
+div[class*="backdrop-blur"] .glass-panel,
+div[class*="bg-black/"] .glass-panel {
+  background: rgba(18, 20, 24, 0.95) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85) !important;
+}
+
 /* HIGH-TECH UTILITIES */
 .glow-text {
   text-shadow: 0 0 12px currentColor;

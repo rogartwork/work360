@@ -70,8 +70,92 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { searchParams } = new URL(_req.url);
+  const permanent = searchParams.get("permanent") === "true";
 
-  await prisma.customer.delete({ where: { id } });
+  // Find customer to see if there is a userId associated
+  const customer = await prisma.customer.findUnique({
+    where: { id },
+    select: { userId: true }
+  });
 
-  return NextResponse.json({ ok: true });
+  if (!customer) {
+    return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+  }
+
+  try {
+    if (!permanent) {
+      // --- SOFT DELETE (Enviar para a Lixeira) ---
+      await prisma.$transaction(async (tx) => {
+        await tx.customer.update({
+          where: { id },
+          data: { status: "TRASHED" }
+        });
+        if (customer.userId) {
+          await tx.user.update({
+            where: { id: customer.userId },
+            data: { isActive: false }
+          });
+        }
+      });
+      return NextResponse.json({ ok: true, soft: true });
+    }
+
+    // --- HARD DELETE (Exclusão Permanente com Cascata) ---
+    const tickets = await prisma.ticket.findMany({
+      where: { customerId: id },
+      select: { id: true }
+    });
+    const ticketIds = tickets.map(t => t.id);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Deletar respostas dos chamados
+      if (ticketIds.length > 0) {
+        await tx.ticketReply.deleteMany({
+          where: { ticketId: { in: ticketIds } }
+        });
+      }
+      // 2. Deletar chamados
+      await tx.ticket.deleteMany({
+        where: { customerId: id }
+      });
+      // 3. Deletar licenças desktop
+      await tx.desktopLicense.deleteMany({
+        where: { customerId: id }
+      });
+      // 4. Deletar licenças web
+      await tx.webLicense.deleteMany({
+        where: { customerId: id }
+      });
+      // 5. Deletar assinaturas
+      await tx.subscription.deleteMany({
+        where: { customerId: id }
+      });
+      // 6. Deletar logs de interação
+      await tx.interactionLog.deleteMany({
+        where: { customerId: id }
+      });
+      // 7. Desvincular contatos da Inbox (setar customerId como null para preservar chat)
+      await tx.inboxContact.updateMany({
+        where: { customerId: id },
+        data: { customerId: null }
+      });
+      // 8. Deletar o próprio cliente
+      await tx.customer.delete({
+        where: { id }
+      });
+      // 9. Deletar o usuário associado do portal cliente se existir
+      if (customer.userId) {
+        await tx.user.delete({
+          where: { id: customer.userId }
+        });
+      }
+    });
+
+    return NextResponse.json({ ok: true, permanent: true });
+  } catch (err: any) {
+    console.error("Erro ao deletar cliente:", err);
+    return NextResponse.json({ error: "Erro ao excluir o cliente do banco de dados." }, { status: 500 });
+  }
 }
+

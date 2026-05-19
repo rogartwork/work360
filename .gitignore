@@ -44,3 +44,7 @@ next-env.d.ts
 /prisma/*.db
 /prisma/*.db-journal
 /prisma/dev.db
+
+# whatsapp sessions and logs
+.wa_sessions/
+*.log

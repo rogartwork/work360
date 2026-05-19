@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { LucideKey, LucidePlus, LucideTrash2, LucideRefreshCcw, LucideActivity, LucideMonitorSmartphone, LucideShieldCheck } from "lucide-react";
+import { 
+  LucideKey, LucidePlus, LucideTrash2, LucideRefreshCcw, 
+  LucideActivity, LucideMonitorSmartphone, LucideShieldCheck, 
+  LucideX, LucideUser, LucideServer, LucideCalendar 
+} from "lucide-react";
 
 interface DesktopLicense {
   id: string;
@@ -21,6 +25,21 @@ interface Customer {
   name: string;
 }
 
+function formatExpiry(iso: string | null) {
+  if (!iso) return { text: "ILIMITADO", color: "text-emerald-400", urgent: false };
+  const d = new Date(iso);
+  const now = new Date();
+  const daysLeft = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) return { text: `EXPIRADO`, color: "text-rose-500", urgent: true };
+  if (daysLeft <= 7) return { text: `${daysLeft}D RESTANTES`, color: "text-amber-400", urgent: true };
+  return { text: d.toLocaleDateString("pt-BR"), color: "text-slate-400", urgent: false };
+}
+
+function truncateId(id: string | null) {
+  if (!id) return "—";
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
 export default function DesktopLicensesView() {
   const [licenses, setLicenses] = useState<DesktopLicense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +48,7 @@ export default function DesktopLicensesView() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlan, setNewPlan] = useState("STANDARD");
+  const [newExpiresAt, setNewExpiresAt] = useState("");
 
   const fetchLicenses = useCallback(async () => {
     setRefreshing(true);
@@ -67,11 +87,16 @@ export default function DesktopLicensesView() {
       const res = await fetch("/api/desktop-licenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId: selectedCustomerId, plan: newPlan }),
+        body: JSON.stringify({ 
+          customerId: selectedCustomerId, 
+          plan: newPlan,
+          expiresAt: newExpiresAt || null
+        }),
       });
       if (res.ok) {
         setShowCreateModal(false);
         setSelectedCustomerId("");
+        setNewExpiresAt("");
         fetchLicenses();
       }
     } catch (e) {
@@ -119,163 +144,265 @@ export default function DesktopLicensesView() {
   if (loading) {
     return (
       <div className="py-24 text-center">
-        <LucideActivity size={48} className="mx-auto text-slate-800 mb-4 animate-pulse" />
-        <p className="text-slate-600 font-bold uppercase tracking-widest text-sm text-center">Carregando Licenças Desktop...</p>
+        <LucideActivity size={48} className="mx-auto text-blue-500/50 mb-4 animate-pulse" />
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-sm text-center">Carregando Licenças Desktop...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-black uppercase tracking-widest text-white flex items-center gap-3">
-          <LucideMonitorSmartphone className="text-blue-400" /> Licenças Desktop
-        </h2>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* HEADER SECTION */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-xl font-black text-slate-100 uppercase tracking-widest flex items-center gap-2">
+            <LucideMonitorSmartphone size={20} className="text-blue-400" /> Licenças Desktop
+          </h2>
+          <p className="text-xs text-slate-500 mt-1 font-bold">Gestão de Licenças e Vinculação de Computadores</p>
+        </div>
         <div className="flex gap-3">
           <button
             onClick={fetchLicenses}
-            className="p-2.5 glass-panel rounded-xl text-blue-400 hover:bg-white/5 transition-all"
+            className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-blue-400 transition-all"
             title="Atualizar"
           >
-            <LucideRefreshCcw size={18} className={refreshing ? "animate-spin" : ""} />
+            <LucideRefreshCcw size={16} className={refreshing ? "animate-spin" : ""} />
           </button>
           <button
             onClick={handleOpenModal}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-widest uppercase rounded-xl flex items-center gap-2 transition-colors"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]"
           >
             <LucidePlus size={16} /> Nova Licença
           </button>
         </div>
       </div>
 
+      {/* TABLE VIEW */}
       <div className="glass-panel rounded-3xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                <th className="px-6 py-4">STATUS</th>
-                <th className="px-6 py-4">CLIENTE / CHAVE</th>
+              <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 border-b border-white/5">
+                <th className="px-8 py-4">STATUS</th>
+                <th className="px-6 py-4">TITULAR | ID LICENÇA</th>
+                <th className="px-6 py-4">APP</th>
+                <th className="px-6 py-4">TIPO</th>
                 <th className="px-6 py-4">PLANO</th>
-                <th className="px-6 py-4">MÁQUINA VINCULADA</th>
-                <th className="px-6 py-4">ÚLTIMA VEZ ONLINE</th>
-                <th className="px-6 py-4 text-right">AÇÕES</th>
+                <th className="px-6 py-4">CHIPS ATIVOS</th>
+                <th className="px-6 py-4">VENCIMENTO</th>
+                <th className="px-8 py-4 text-right">ORIGEM</th>
+                <th className="px-8 py-4 text-center">OPÇÕES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
               {licenses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500 text-xs font-bold uppercase tracking-widest">
-                    Nenhuma licença Desktop criada ainda.
+                  <td colSpan={9} className="py-16 text-center">
+                    <LucideActivity size={40} className="mx-auto text-slate-800 mb-3 animate-pulse" />
+                    <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Nenhuma licença Desktop criada ainda.</p>
                   </td>
                 </tr>
               ) : (
-                licenses.map((lic) => (
-                  <tr key={lic.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => toggleActive(lic.id, lic.isActive)}
-                        className={`w-10 h-5 rounded-full relative transition-colors ${lic.isActive ? "bg-emerald-500/20" : "bg-rose-500/20"}`}
-                        title={lic.isActive ? "Desativar" : "Ativar"}
-                      >
-                        <div className={`w-4 h-4 rounded-full absolute top-0.5 transition-all ${lic.isActive ? "right-0.5 bg-emerald-500" : "left-0.5 bg-rose-500"}`} />
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-bold text-sm text-white">{lic.customer?.name || "Cliente Removido"}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <LucideKey size={10} className="text-slate-500" />
-                        <span className="text-xs font-mono text-slate-400 select-all">{lic.key}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] font-bold text-slate-300">
-                        {lic.plan}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {lic.machineId ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-slate-400" title={lic.machineId}>
-                            {lic.machineId.substring(0, 12)}...
-                          </span>
-                          <button
-                            onClick={() => resetMachine(lic.id)}
-                            className="text-[9px] px-1.5 py-0.5 bg-rose-500/10 text-rose-400 rounded hover:bg-rose-500/20"
-                          >
-                            RESET
-                          </button>
+                licenses.map((lic) => {
+                  const expiry = formatExpiry(lic.expiresAt);
+                  return (
+                    <tr key={lic.id} className={`group hover:bg-white/[0.02] transition-all duration-300 ${!lic.isActive ? "opacity-40 grayscale" : ""}`}>
+                      
+                      {/* STATUS TOGGLE */}
+                      <td className="px-8 py-4">
+                        <button
+                          onClick={() => toggleActive(lic.id, lic.isActive)}
+                          className={`w-6 h-6 rounded-md flex items-center justify-center status-ring border transition-all ${
+                            lic.isActive 
+                              ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10" 
+                              : "text-rose-500 border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10"
+                          }`}
+                          title={lic.isActive ? "Desativar Licença" : "Ativar Licença"}
+                        >
+                          <LucideActivity size={12} className={lic.isActive ? "animate-pulse" : ""} />
+                        </button>
+                      </td>
+
+                      {/* TITULAR | ID LICENÇA */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
+                            <LucideUser size={12} />
+                          </div>
+                          <div>
+                            <p className="font-black text-[12px] text-white uppercase leading-none group-hover:text-blue-400 transition-colors">
+                              {lic.customer?.name || "Cliente Removido"}
+                            </p>
+                            <p className="text-[8px] text-slate-600 font-mono mt-1">
+                              ID: {truncateId(lic.id)}
+                            </p>
+                          </div>
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-600 font-bold">Aguardando Vinculação</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-slate-400">
-                        {lic.lastSeenAt ? new Date(lic.lastSeenAt).toLocaleString("pt-BR") : "Nunca"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => deleteLicense(lic.id)}
-                        className="p-1.5 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                        title="Excluir"
-                      >
-                        <LucideTrash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      {/* APP */}
+                      <td className="px-6 py-4">
+                        <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-[4px]">
+                          WORK360 DESKTOP
+                        </span>
+                      </td>
+
+                      {/* TIPO */}
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                          DESKTOP
+                        </span>
+                      </td>
+
+                      {/* PLANO */}
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-wider ${
+                          lic.plan === 'GOLD' || lic.plan === 'UNLIMITED' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                          lic.plan === 'SILVER' || lic.plan === 'PRO' ? 'bg-slate-500/10 text-slate-300 border border-slate-500/20' :
+                          'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        }`}>
+                          {lic.plan}
+                        </span>
+                      </td>
+
+                      {/* CHIPS ATIVOS */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-sm font-bold text-white leading-none">{lic.machineId ? "1" : "0"}</span>
+                          <span className="text-[8px] text-slate-600 font-bold">/ 1 CHIP</span>
+                        </div>
+                        <div className="w-16 h-1 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-1000 ${lic.machineId ? "bg-emerald-500" : "bg-slate-700"}`}
+                            style={{ width: lic.machineId ? "100%" : "0%" }}
+                          />
+                        </div>
+                      </td>
+
+                      {/* VENCIMENTO */}
+                      <td className="px-6 py-4">
+                        <p className={`text-[10px] font-bold leading-none ${expiry.color}`}>{expiry.text}</p>
+                        <p className="text-[7px] text-slate-700 font-bold uppercase mt-1 tracking-tighter">Ciclo</p>
+                      </td>
+
+                      {/* ORIGEM */}
+                      <td className="px-8 py-4 text-right">
+                        {lic.machineId ? (
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/5">
+                              <span className="text-[8px] font-bold text-slate-500 tracking-tighter font-mono" title={lic.machineId}>
+                                PC: {lic.machineId.substring(0, 10)}...
+                              </span>
+                              <button
+                                onClick={() => resetMachine(lic.id)}
+                                className="text-[8px] px-1.5 py-0.5 bg-rose-500/10 text-rose-400 rounded border border-rose-500/20 hover:bg-rose-500/20 font-black transition-colors"
+                                title="Desvincular Computador"
+                              >
+                                RESET
+                              </button>
+                            </div>
+                            {lic.lastSeenAt && (
+                              <p className="text-[7px] text-slate-600 font-bold uppercase">
+                                Visto: {new Date(lic.lastSeenAt).toLocaleString("pt-BR")}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/5">
+                            <span className="text-[8px] font-bold text-slate-600 tracking-tighter uppercase">NENHUM PC VINCULADO</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* OPÇÕES */}
+                      <td className="px-8 py-4 text-center">
+                        <button
+                          onClick={() => deleteLicense(lic.id)}
+                          className="p-2.5 rounded-xl bg-white/5 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-all border border-transparent hover:border-rose-500/30"
+                          title="Remover Licença"
+                        >
+                          <LucideTrash2 size={16} />
+                        </button>
+                      </td>
+
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
 
+      {/* CREATE MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#111111] border border-white/10 p-6 rounded-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-black text-white mb-4 uppercase tracking-widest flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="glass-panel w-full max-w-md rounded-3xl border border-white/10 p-8 shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-4 right-4 text-slate-400 p-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full transition-colors"
+            >
+              <LucideX size={20} />
+            </button>
+
+            <h3 className="text-xl font-black text-white mb-6 uppercase tracking-widest flex items-center gap-2">
               <LucideShieldCheck className="text-blue-500" />
               Gerar Licença Desktop
             </h3>
-            <form onSubmit={handleCreate} className="space-y-4">
+
+            <form onSubmit={handleCreate} className="space-y-5">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Selecionar Cliente (CRM)</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Selecionar Cliente (CRM)</label>
                 <select
                   required
                   value={selectedCustomerId}
                   onChange={e => setSelectedCustomerId(e.target.value)}
-                  className="w-full bg-[#1a1c23] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 outline-none transition-colors"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-xs font-bold text-white focus:border-blue-500 outline-none transition-all cursor-pointer"
                 >
-                  <option value="">Selecione um cliente...</option>
+                  <option value="" className="bg-[#1a1c23]">Selecione um cliente...</option>
                   {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id} className="bg-[#1a1c23]">{c.name}</option>
                   ))}
                 </select>
               </div>
+
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Plano</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Plano de Licenciamento</label>
                 <select
                   value={newPlan}
                   onChange={e => setNewPlan(e.target.value)}
-                  className="w-full bg-[#1a1c23] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 outline-none transition-colors"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-xs font-bold text-white focus:border-blue-500 outline-none transition-all cursor-pointer"
                 >
-                  <option value="STANDARD">STANDARD</option>
-                  <option value="PRO">PRO</option>
-                  <option value="UNLIMITED">UNLIMITED</option>
+                  <option value="STANDARD" className="bg-[#1a1c23]">STANDARD</option>
+                  <option value="PRO" className="bg-[#1a1c23]">PRO</option>
+                  <option value="UNLIMITED" className="bg-[#1a1c23]">UNLIMITED</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Data de Expiração (Opcional)</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={newExpiresAt}
+                    onChange={e => setNewExpiresAt(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-xs font-bold text-white focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
+                  className="flex-1 py-3.5 px-4 bg-white/5 hover:bg-white/10 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all border border-white/10 hover:border-white/20"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
+                  className="flex-1 py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]"
                 >
                   Gerar Chave
                 </button>

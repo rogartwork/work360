@@ -86,6 +86,7 @@ export default function InboxView() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // ── Fetch sessions ──────────────────────────────────────────────────────────
   const fetchSessions = useCallback(async () => {
@@ -127,7 +128,17 @@ export default function InboxView() {
       const { message } = JSON.parse(e.data);
       // Atualiza mensagens se for da conversa ativa
       if (activeContact?.contactId === message.contactId) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          // Proteção contra duplicação de mensagens idênticas enviadas no mesmo momento (ex: concorrência de microtasks)
+          const isSimilar = prev.some((m) =>
+            m.direction === message.direction &&
+            m.body === message.body &&
+            Math.abs(new Date(m.sentAt).getTime() - new Date(message.sentAt).getTime()) < 3000
+          );
+          if (isSimilar) return prev;
+          return [...prev, message];
+        });
       }
       // Atualiza badge de não lidos
       fetchConversations(activeSessionId ?? undefined);
@@ -176,7 +187,17 @@ export default function InboxView() {
       );
       if (res.ok) {
         const saved = await res.json();
-        setMessages((prev) => [...prev, saved]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === saved.id)) return prev;
+          // Proteção contra duplicação de mensagens idênticas enviadas no mesmo momento (ex: concorrência de microtasks)
+          const isSimilar = prev.some((m) =>
+            m.direction === saved.direction &&
+            m.body === saved.body &&
+            Math.abs(new Date(m.sentAt).getTime() - new Date(saved.sentAt).getTime()) < 3000
+          );
+          if (isSimilar) return prev;
+          return [...prev, saved];
+        });
         setReplyText("");
       }
     } finally {
@@ -211,10 +232,23 @@ export default function InboxView() {
 
   // ── Remover sessão ──────────────────────────────────────────────────────────
   const removeSession = async (id: string) => {
-    if (!confirm("Desconectar e remover esta sessão WhatsApp?")) return;
-    await fetch(`/api/inbox/sessions/${id}`, { method: "DELETE" });
-    fetchSessions();
-    if (activeSessionId === id) setActiveSessionId(null);
+    if (!confirm("Desconectar e remover esta sessão WhatsApp? Esta ação não pode ser desfeita.")) return;
+    setRemovingId(id);
+    try {
+      const res = await fetch(`/api/inbox/sessions/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        await fetchSessions();
+        if (activeSessionId === id) setActiveSessionId(null);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Erro ao remover sessão: ${err?.error ?? "Tente novamente."}`);
+        await fetchSessions(); // recarrega para refletir estado real
+      }
+    } catch (e) {
+      alert("Erro de conexão ao tentar remover a sessão.");
+    } finally {
+      setRemovingId(null);
+    }
   };
 
   // ─── Filtros ────────────────────────────────────────────────────────────────
@@ -225,11 +259,16 @@ export default function InboxView() {
 
   const totalUnread = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
-  // ─── QR Modal — atualiza via SSE ──────────────────────────────────────────
+  // ─── QR Modal — atualiza apenas se já estiver aberto pelo usuário ─────────
+  // NÃO reabre automaticamente via SSE. Só atualiza o QR code image e detecta sucesso.
   useEffect(() => {
     if (!qrModal) return;
     const live = sessions.find((s) => s.id === qrModal.id);
-    if (live) setQrModal(live);
+    if (!live) return;
+    // Só atualiza se o QR mudou ou se conectou com sucesso
+    if (live.status !== qrModal.status || live.qrCode !== qrModal.qrCode) {
+      setQrModal(live);
+    }
   }, [sessions, qrModal?.id]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -318,9 +357,13 @@ export default function InboxView() {
                     )}
                     <button
                       onClick={(e) => { e.stopPropagation(); removeSession(s.id); }}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/10"
+                      disabled={removingId === s.id}
+                      className="w-6 h-6 flex items-center justify-center rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 disabled:opacity-40"
+                      title="Remover sessão"
                     >
-                      <LucideTrash2 size={11} />
+                      {removingId === s.id
+                        ? <LucideLoader2 size={11} className="animate-spin text-rose-400" />
+                        : <LucideTrash2 size={11} />}
                     </button>
                   </div>
                 </div>
@@ -455,7 +498,9 @@ export default function InboxView() {
                 <p className="text-[10px] text-slate-600 uppercase tracking-widest">Nenhuma mensagem</p>
               </div>
             ) : (
-              messages.map((msg) => (
+              messages
+                .filter((msg, index, self) => self.findIndex(m => m.id === msg.id) === index)
+                .map((msg) => (
                 <div
                   key={msg.id}
                   className={`flex ${msg.direction === "OUT" ? "justify-end" : "justify-start"}`}
@@ -491,12 +536,13 @@ export default function InboxView() {
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    // Enviar apenas com Ctrl+Enter ou Meta+Enter (Cmd+Enter no Mac)
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                       e.preventDefault();
                       sendReply();
                     }
                   }}
-                  placeholder="Digite a mensagem... (Enter para enviar)"
+                  placeholder="Digite a mensagem... (Ctrl+Enter para enviar, Enter para nova linha)"
                   rows={1}
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[12px] text-slate-300 outline-none focus:border-blue-500/40 resize-none transition-colors"
                   style={{ maxHeight: 120 }}

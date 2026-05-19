@@ -17,17 +17,35 @@ model TargetDatabase {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  role      String   @default("CUSTOMER") // SUPER_ADMIN, SUPPORT, AFFILIATE, CUSTOMER
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String    @id @default(cuid())
+  username       String    @unique
+  password       String
+  role           String    @default("CUSTOMER") // SUPER_ADMIN, SUPPORT, AFFILIATE, CUSTOMER
   
-  customer  Customer?
+  // -- Campos SaaS Nexus360 (Aba Administração) --
+  name           String?
+  email          String?   @unique
+  phone          String?
+  city           String?
+  plan           String    @default("BRONZE")
+  maxSessions    Int       @default(1)
+  isActive       Boolean   @default(true)
+  expiresAt      DateTime?
+  
+  // Permissões de Módulos (Matriz de Acesso)
+  allowWarmup    Boolean   @default(true)
+  allowInclusion Boolean   @default(true)
+  allowMessager  Boolean   @default(true)
+  allowDisplay   Boolean   @default(true)
+  // ----------------------------------------------
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  customer       Customer?
 
   @@map("Users")
-  TicketReply TicketReply[]
+  TicketReply    TicketReply[]
 }
 
 model Customer {

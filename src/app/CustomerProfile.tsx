@@ -45,25 +45,30 @@ function LicenseBadge({ license }: { license: any }) {
     : null;
 
   return (
-    <div className="glass-panel p-4 rounded-xl flex items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${license.isActive && !expired ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
-          <LucideShield size={14} />
+    <div className="glass-panel p-4 rounded-xl flex items-center justify-between gap-3 relative overflow-hidden">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${license.isActive && !expired ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
+          <LucideShield size={16} />
         </div>
-        <div>
-          <p className="text-[11px] font-black text-white uppercase">{license.key ?? license.username ?? license.name}</p>
-          <p className="text-[9px] text-slate-500 font-bold uppercase">{license.plan} · {license.role ?? "STANDARD"}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-[11px] md:text-[12px] font-black text-white uppercase break-all">{license.key ?? license.username ?? license.name}</p>
+            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0 ${license._type === "desktop" ? "bg-purple-500/10 text-purple-400" : "bg-blue-500/10 text-blue-400"}`}>
+              {license._type}
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5 truncate">{license.plan} · {license.role ?? "STANDARD"}</p>
         </div>
       </div>
-      <div className="text-right">
+      <div className="text-right shrink-0">
         {license.expiresAt ? (
-          <p className={`text-[10px] font-black ${expired ? "text-rose-400" : daysLeft! <= 7 ? "text-amber-400" : "text-emerald-400"}`}>
-            {expired ? "EXPIRADA" : daysLeft! <= 7 ? `${daysLeft}d restantes` : fmtDate(license.expiresAt)}
+          <p className={`text-[11px] font-black ${expired ? "text-rose-400" : daysLeft! <= 7 ? "text-amber-400" : "text-emerald-400"}`}>
+            {expired ? "EXPIRADA" : daysLeft! <= 7 ? `${daysLeft}d` : fmtDate(license.expiresAt)}
           </p>
         ) : (
-          <p className="text-[10px] font-black text-emerald-400">ILIMITADA</p>
+          <p className="text-[11px] font-black text-emerald-400">ILIMITADA</p>
         )}
-        <p className={`text-[8px] font-bold uppercase mt-0.5 ${license.isActive ? "text-emerald-600" : "text-rose-600"}`}>
+        <p className={`text-[9px] font-bold uppercase mt-0.5 ${license.isActive ? "text-emerald-600" : "text-rose-600"}`}>
           {license.isActive ? "ATIVA" : "INATIVA"}
         </p>
       </div>
@@ -139,9 +144,33 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
       if (res.ok) {
         setNewLog("");
         fetchCustomer();
+      } else {
+        const errData = await res.json();
+        alert(`Erro ao enviar: ${errData.error ?? "Verifique os dados e tente novamente."}`);
       }
+    } catch (err) {
+      alert("Erro de conexão. Tente novamente.");
     } finally {
       setSubmittingLog(false);
+    }
+  };
+
+  const handleDeleteLog = async (logId: string) => {
+    if (!window.confirm("Deseja realmente remover esta interação do histórico do cliente?")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/customers/${customerId}/interactions?logId=${logId}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        fetchCustomer();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao remover interação");
+      }
+    } catch {
+      alert("Erro de conexão ao tentar remover interação.");
     }
   };
 
@@ -149,7 +178,7 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-end">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative w-full md:w-[640px] h-full bg-[#0a0a0c] border-l border-white/10 flex items-center justify-center">
+        <div className="relative w-full md:w-[800px] h-full bg-[#0a0a0c] border-l border-white/10 flex items-center justify-center">
           <LucideLoader2 size={32} className="text-blue-500 animate-spin" />
         </div>
       </div>
@@ -177,41 +206,41 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-end">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full md:w-[640px] h-full bg-[#0a0a0c] border-l border-white/10 flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl">
+      <div className="relative w-full md:w-[800px] h-full bg-[#0a0a0c] border-l border-white/10 flex flex-col animate-in slide-in-from-right duration-300 shadow-2xl">
 
         {/* Header */}
         <div className="p-6 border-b border-white/5">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                <LucideUser size={20} />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                <LucideUser size={24} />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-black text-white uppercase tracking-wider">{customer.name}</h2>
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${sourceColors[customer.source] ?? sourceColors.MANUAL}`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base md:text-lg font-black text-white uppercase tracking-wider break-words">{customer.name}</h2>
+                  <span className={`px-2 py-0.5 rounded text-[9px] md:text-[10px] font-black uppercase shrink-0 ${sourceColors[customer.source] ?? sourceColors.MANUAL}`}>
                     {customer.source ?? "MANUAL"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${customer.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-500" : customer.status === "LEAD" ? "bg-amber-500/10 text-amber-400" : "bg-rose-500/10 text-rose-400"}`}>
+                  <span className={`px-2 py-0.5 rounded text-[9px] md:text-[10px] font-black uppercase ${customer.status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-500" : customer.status === "LEAD" ? "bg-amber-500/10 text-amber-400" : "bg-rose-500/10 text-rose-400"}`}>
                     {customer.status}
                   </span>
-                  <span className="text-[9px] text-slate-600 font-mono">ID: {customer.id.slice(0, 8)}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">ID: {customer.id.slice(0, 8)}</span>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {editing ? (
                 <button onClick={handleSaveEdit} disabled={savingEdit}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-[10px] font-bold hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
-                  {savingEdit ? <LucideLoader2 size={11} className="animate-spin" /> : <LucideSave size={11} />}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/30 transition-colors disabled:opacity-50">
+                  {savingEdit ? <LucideLoader2 size={13} className="animate-spin" /> : <LucideSave size={13} />}
                   Salvar
                 </button>
               ) : (
                 <button onClick={() => setEditing(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-slate-400 text-[10px] font-bold hover:bg-white/10 transition-colors">
-                  <LucideEdit size={11} /> Editar
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-slate-400 text-[11px] font-bold hover:bg-white/10 transition-colors">
+                  <LucideEdit size={13} /> Editar
                 </button>
               )}
               <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400 transition-colors">
@@ -224,16 +253,16 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
           <div className="flex gap-1 mt-2">
             {STATUS_STAGES.map(stage => (
               <div key={stage} title={stage}
-                className={`h-1 flex-1 rounded-full transition-all ${customer.pipelineStage === stage ? "bg-blue-500" : STATUS_STAGES.indexOf(stage) < STATUS_STAGES.indexOf(customer.pipelineStage as any) ? "bg-blue-500/30" : "bg-white/5"}`} />
+                className={`h-1.5 flex-1 rounded-full transition-all ${customer.pipelineStage === stage ? "bg-blue-500" : STATUS_STAGES.indexOf(stage) < STATUS_STAGES.indexOf(customer.pipelineStage as any) ? "bg-blue-500/30" : "bg-white/5"}`} />
             ))}
           </div>
-          <p className="text-[9px] text-slate-600 mt-1 font-bold uppercase tracking-widest">{customer.pipelineStage?.replace(/_/g, " ")}</p>
-
+          <p className="text-[9.5px] md:text-[10px] text-slate-500 mt-1.5 font-bold uppercase tracking-widest">{customer.pipelineStage?.replace(/_/g, " ")}</p>
+ 
           {/* Tabs */}
           <div className="flex gap-1 mt-4 overflow-x-auto">
             {tabs.map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all ${activeTab === tab.id ? "bg-blue-500/20 text-blue-400" : "text-slate-500 hover:text-slate-300 hover:bg-white/5"}`}>
+                className={`px-3 py-1.5 rounded-lg text-[11px] md:text-[12px] font-bold whitespace-nowrap transition-all ${activeTab === tab.id ? "bg-blue-500/20 text-blue-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"}`}>
                 {tab.label}
               </button>
             ))}
@@ -241,8 +270,7 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* GERAL */}
           {activeTab === "geral" && (
             <div className="space-y-5 animate-in fade-in duration-200">
@@ -256,35 +284,35 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
                     { label: "Endereço", key: "address", type: "text" },
                   ].map(f => (
                     <div key={f.key}>
-                      <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
                       <input type={f.type} value={editForm[f.key] ?? ""} onChange={e => setEditForm({ ...editForm, [f.key]: e.target.value })}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40 transition-colors" />
                     </div>
                   ))}
                   <div>
-                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</label>
                     <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40">
                       {["LEAD", "ACTIVE", "INACTIVE"].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Etapa do Pipeline</label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Etapa do Pipeline</label>
                     <select value={editForm.pipelineStage} onChange={e => setEditForm({ ...editForm, pipelineStage: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40">
                       {STATUS_STAGES.map(s => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Notas</label>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Notas</label>
                     <textarea rows={3} value={editForm.notes ?? ""} onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40 resize-none" />
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="glass-panel p-5 rounded-2xl space-y-3">
-                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Contato</h3>
+                  <div className="glass-panel p-5 rounded-2xl space-y-3.5">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3.5">Contato</h3>
                     {[
                       { icon: LucideMail, value: customer.email, color: "text-blue-400" },
                       { icon: LucidePhone, value: customer.phone || "—", color: "text-emerald-400" },
@@ -292,12 +320,12 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
                       { icon: LucideMapPin, value: customer.address || "Endereço não informado", color: "text-amber-400" },
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-3">
-                        <item.icon size={14} className={`${item.color} mt-0.5 shrink-0`} />
-                        <span className="text-[11px] text-slate-300 font-bold">{item.value}</span>
+                        <item.icon size={16} className={`${item.color} mt-0.5 shrink-0`} />
+                        <span className="text-[12px] text-slate-300 font-bold">{item.value}</span>
                       </div>
                     ))}
                   </div>
-
+ 
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: "Licenças", val: allLicenses.length, color: "text-blue-400", icon: LucideShield },
@@ -305,23 +333,23 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
                       { label: "Assinaturas", val: (customer.subscriptions ?? []).length, color: "text-amber-400", icon: LucideCreditCard },
                     ].map((stat, i) => (
                       <div key={i} className="glass-panel p-4 rounded-xl text-center">
-                        <stat.icon size={16} className={`${stat.color} mx-auto mb-2`} />
-                        <p className={`text-xl font-black ${stat.color}`}>{stat.val}</p>
-                        <p className="text-[8px] text-slate-600 font-bold uppercase">{stat.label}</p>
+                        <stat.icon size={18} className={`${stat.color} mx-auto mb-2`} />
+                        <p className="text-lg md:text-xl font-black text-white">{stat.val}</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">{stat.label}</p>
                       </div>
                     ))}
                   </div>
-
+ 
                   {customer.notes && (
                     <div className="glass-panel p-4 rounded-xl border-amber-500/20 bg-amber-500/5">
-                      <h3 className="text-[9px] font-black text-amber-500/70 uppercase tracking-widest mb-2">Notas</h3>
-                      <p className="text-[11px] text-amber-100/70 italic">{customer.notes}</p>
+                      <h3 className="text-[10px] font-black text-amber-500/70 uppercase tracking-widest mb-2">Notas</h3>
+                      <p className="text-[12px] text-amber-100/70 italic leading-relaxed">{customer.notes}</p>
                     </div>
                   )}
-
+ 
                   <div className="glass-panel p-4 rounded-xl">
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Cadastrado em</p>
-                    <p className="text-[11px] text-slate-300 font-bold">{fmtDateTime(customer.createdAt)}</p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Cadastrado em</p>
+                    <p className="text-[12px] text-slate-300 font-bold">{fmtDateTime(customer.createdAt)}</p>
                   </div>
                 </>
               )}
@@ -332,19 +360,19 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
           {activeTab === "chamados" && (
             <div className="space-y-3 animate-in fade-in duration-200">
               {(customer.Ticket ?? []).length === 0 ? (
-                <div className="text-center py-12 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Nenhum chamado</div>
+                <div className="text-center py-12 text-[11px] font-bold text-slate-600 uppercase tracking-widest">Nenhum chamado</div>
               ) : (customer.Ticket ?? []).map((ticket: any) => (
                 <div key={ticket.id} className="glass-panel p-4 rounded-xl">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <p className="text-[11px] font-black text-white">{ticket.subject}</p>
-                      <p className="text-[9px] text-slate-500 mt-0.5">{fmtDate(ticket.createdAt)} · {ticket.replies?.length ?? 0} respostas</p>
+                      <p className="text-[12px] font-black text-white">{ticket.subject}</p>
+                      <p className="text-[10px] text-slate-500 mt-1">{fmtDate(ticket.createdAt)} · {ticket.replies?.length ?? 0} respostas</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${ticket.status === "OPEN" ? "bg-blue-500/10 text-blue-400" : ticket.status === "IN_PROGRESS" ? "bg-amber-500/10 text-amber-400" : "bg-slate-500/10 text-slate-500"}`}>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${ticket.status === "OPEN" ? "bg-blue-500/10 text-blue-400" : ticket.status === "IN_PROGRESS" ? "bg-amber-500/10 text-amber-400" : "bg-slate-500/10 text-slate-500"}`}>
                         {ticket.status}
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${ticket.priority === "URGENT" ? "bg-rose-500/10 text-rose-400" : ticket.priority === "HIGH" ? "bg-orange-500/10 text-orange-400" : "bg-slate-500/10 text-slate-500"}`}>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${ticket.priority === "URGENT" ? "bg-rose-500/10 text-rose-400" : ticket.priority === "HIGH" ? "bg-orange-500/10 text-orange-400" : "bg-slate-500/10 text-slate-500"}`}>
                         {ticket.priority}
                       </span>
                     </div>
@@ -358,12 +386,9 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
           {activeTab === "licencas" && (
             <div className="space-y-3 animate-in fade-in duration-200">
               {allLicenses.length === 0 ? (
-                <div className="text-center py-12 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Nenhuma licença</div>
+                <div className="text-center py-12 text-[11px] font-bold text-slate-600 uppercase tracking-widest">Nenhuma licença</div>
               ) : allLicenses.map((lic: any) => (
-                <div key={lic.id} className="relative">
-                  <span className={`absolute top-3 right-3 px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${lic._type === "desktop" ? "bg-purple-500/10 text-purple-400" : "bg-blue-500/10 text-blue-400"}`}>
-                    {lic._type}
-                  </span>
+                <div key={lic.id}>
                   <LicenseBadge license={lic} />
                 </div>
               ))}
@@ -374,14 +399,14 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
           {activeTab === "financeiro" && (
             <div className="space-y-3 animate-in fade-in duration-200">
               {(customer.subscriptions ?? []).length === 0 ? (
-                <div className="text-center py-12 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Nenhuma assinatura</div>
+                <div className="text-center py-12 text-[11px] font-bold text-slate-600 uppercase tracking-widest">Nenhuma assinatura</div>
               ) : (customer.subscriptions ?? []).map((sub: any) => (
                 <div key={sub.id} className="glass-panel p-4 rounded-xl flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-black text-white">R$ {Number(sub.amount).toFixed(2)}</p>
-                    <p className="text-[9px] text-slate-500 mt-0.5">{sub.paymentMethod ?? "—"} · vence {fmtDate(sub.expiresAt)}</p>
+                    <p className="text-[12.5px] md:text-[13px] font-black text-white">R$ {Number(sub.amount).toFixed(2)}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">{sub.paymentMethod ?? "—"} · vence {fmtDate(sub.expiresAt)}</p>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${sub.status === "PAID" ? "bg-emerald-500/10 text-emerald-400" : sub.status === "PENDING" ? "bg-amber-500/10 text-amber-400" : "bg-rose-500/10 text-rose-400"}`}>
+                  <span className={`px-2 py-0.5 rounded text-[9.5px] font-black uppercase ${sub.status === "PAID" ? "bg-emerald-500/10 text-emerald-400" : sub.status === "PENDING" ? "bg-amber-500/10 text-amber-400" : "bg-rose-500/10 text-rose-400"}`}>
                     {sub.status}
                   </span>
                 </div>
@@ -392,41 +417,74 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
           {/* TIMELINE */}
           {activeTab === "timeline" && (
             <div className="animate-in fade-in duration-200">
-              <form onSubmit={handleAddLog} className="mb-6 space-y-2">
-                <div className="flex gap-2">
+              <form onSubmit={handleAddLog} className="mb-6 space-y-2.5">
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {LOG_TYPES.map(t => (
                     <button type="button" key={t} onClick={() => setLogType(t)}
-                      className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${logType === t ? LOG_COLORS[t] + " ring-1 ring-current" : "text-slate-600 hover:text-slate-400 bg-white/[0.03]"}`}>
+                      className={`px-3 py-1.5 rounded-lg text-[10px] md:text-[11px] font-black uppercase transition-all ${logType === t ? LOG_COLORS[t] + " ring-1 ring-current" : "text-slate-400 hover:text-slate-200 bg-white/[0.03]"}`}>
                       {t}
                     </button>
                   ))}
                 </div>
                 <div className="relative">
                   <textarea value={newLog} onChange={e => setNewLog(e.target.value)}
-                    placeholder="Registrar nota, ligação, e-mail..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 pr-12 text-[11px] text-white outline-none focus:border-blue-500/40 resize-none transition-colors"
+                    placeholder={
+                      logType === "WHATSAPP"
+                        ? `Enviar mensagem WhatsApp para ${customer?.phone ?? "(sem telefone cadastrado)"}...`
+                        : logType === "CALL" ? "Registrar ligação realizada..."
+                        : logType === "EMAIL" ? "Registrar e-mail enviado/recebido..."
+                        : logType === "COMPRA" ? "Registrar compra ou transação..."
+                        : "Registrar nota, observação..."
+                    }
+                    className={`w-full bg-white/5 border rounded-xl p-4 pr-12 text-[12px] text-white outline-none resize-none transition-colors ${
+                      logType === "WHATSAPP"
+                        ? "border-emerald-500/30 focus:border-emerald-500/60"
+                        : "border-white/10 focus:border-blue-500/40"
+                    }`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        (e.target as HTMLTextAreaElement).form?.requestSubmit();
+                      }
+                    }}
                     rows={3} required />
                   <button type="submit" disabled={submittingLog}
-                    className="absolute bottom-3 right-3 p-2 bg-blue-500 hover:bg-blue-400 text-white rounded-lg transition-colors disabled:opacity-50">
-                    {submittingLog ? <LucideLoader2 size={12} className="animate-spin" /> : <LucideSend size={12} />}
+                    className={`absolute bottom-3 right-3 p-2.5 text-white rounded-lg transition-colors disabled:opacity-50 ${
+                      logType === "WHATSAPP" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-blue-500 hover:bg-blue-400"
+                    }`}>
+                    {submittingLog ? <LucideLoader2 size={14} className="animate-spin" /> : <LucideSend size={14} />}
                   </button>
                 </div>
+                {logType === "WHATSAPP" && !customer?.phone && (
+                  <p className="text-[10px] text-amber-400 font-bold uppercase mt-1.5 flex items-center gap-1">
+                    ⚠️ Cadastre o telefone do cliente na aba Geral para enviar pelo WhatsApp.
+                  </p>
+                )}
               </form>
-
-              <div className="space-y-3">
+ 
+              <div className="space-y-3.5">
                 {(customer.interactionLogs ?? []).length === 0 ? (
-                  <div className="text-center py-8 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Nenhum histórico</div>
+                  <div className="text-center py-8 text-[11px] font-bold text-slate-600 uppercase tracking-widest">Nenhum histórico</div>
                 ) : (customer.interactionLogs ?? []).map((log: any) => (
-                  <div key={log.id} className="flex gap-3">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[9px] font-black mt-0.5 ${LOG_COLORS[log.type as LogType] ?? LOG_COLORS.NOTE}`}>
+                  <div key={log.id} className="flex gap-3 animate-in fade-in duration-200">
+                    <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black mt-0.5 ${LOG_COLORS[log.type as LogType] ?? LOG_COLORS.NOTE}`}>
                       {log.type[0]}
                     </div>
-                    <div className="flex-1 glass-panel p-3 rounded-xl">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-[9px] font-black uppercase ${(LOG_COLORS[log.type as LogType] ?? LOG_COLORS.NOTE).split(" ")[0]}`}>{log.type}</span>
-                        <time className="text-[9px] text-slate-600">{fmtDateTime(log.createdAt)}</time>
+                    <div className="flex-1 glass-panel p-3.5 rounded-xl group relative">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-[10px] font-black uppercase ${(LOG_COLORS[log.type as LogType] ?? LOG_COLORS.NOTE).split(" ")[0]}`}>{log.type}</span>
+                        <div className="flex items-center gap-2.5">
+                          <time className="text-[10px] text-slate-500">{fmtDateTime(log.createdAt)}</time>
+                          <button 
+                            onClick={() => handleDeleteLog(log.id)}
+                            className="text-slate-500 hover:text-rose-400 p-0.5 transition-colors"
+                            title="Excluir do histórico"
+                          >
+                            <LucideX size={12} />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-slate-300 leading-relaxed">{log.content}</p>
+                      <p className="text-[12px] text-slate-200 leading-relaxed whitespace-pre-wrap">{log.content}</p>
                     </div>
                   </div>
                 ))}

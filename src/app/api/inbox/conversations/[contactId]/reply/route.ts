@@ -45,6 +45,21 @@ export async function POST(
     },
   });
 
+  // Salva log de interação no CRM se o contato estiver associado a um cliente
+  if (contact.customerId) {
+    try {
+      await prisma.interactionLog.create({
+        data: {
+          customerId: contact.customerId,
+          type: "WHATSAPP",
+          content: `[Suporte]: ${body.trim()}`
+        }
+      });
+    } catch (logErr: any) {
+      console.error("[WA-LOG] Erro ao criar log de interação para resposta:", logErr.message);
+    }
+  }
+
   // Notifica UI em tempo real
   waManager.broadcast("message:new", { sessionId, message: saved });
 
