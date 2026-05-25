@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (!session.isLoggedIn) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
 
   try {
-    const { customerId, plan, expiresAt } = await req.json();
+    const { customerId, plan, expiresAt, maxSessions, allowWarmup, allowInclusion, allowMessager, allowDisplay } = await req.json();
 
     if (!customerId) {
       return NextResponse.json({ error: 'ID do cliente é obrigatório.' }, { status: 400 });
@@ -51,6 +51,11 @@ export async function POST(req: NextRequest) {
         customerId,
         plan: plan || 'STANDARD',
         expiresAt: expiresAt ? new Date(expiresAt) : null,
+        maxSessions: maxSessions !== undefined ? Number(maxSessions) : 5,
+        allowWarmup: allowWarmup !== undefined ? allowWarmup : true,
+        allowInclusion: allowInclusion !== undefined ? allowInclusion : true,
+        allowMessager: allowMessager !== undefined ? allowMessager : true,
+        allowDisplay: allowDisplay !== undefined ? allowDisplay : true,
       },
     });
 

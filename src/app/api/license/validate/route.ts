@@ -43,7 +43,13 @@ export async function POST(req: NextRequest) {
     // Buscar a licença no banco
     const license = await prisma.desktopLicense.findUnique({
       where: { key: key.trim().toUpperCase() },
-      include: { customer: true }
+      include: {
+        customer: {
+          include: {
+            user: true
+          }
+        }
+      }
     });
 
     if (!license) {
@@ -103,13 +109,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Obter limites da Licença Desktop ou aplicar fallback ──
+    let maxSessions = license.maxSessions ?? 5; 
+    let allowWarmup = license.allowWarmup ?? true;
+    let allowInclusion = license.allowInclusion ?? true;
+    let allowMessager = license.allowMessager ?? true;
+    let allowDisplay = license.allowDisplay ?? true;
+
+    if (license.customer?.user) {
+      // Legacy fallback se os campos nao existirem e houver user vinculado
+      const u = license.customer.user;
+      if (license.maxSessions === undefined) maxSessions = u.maxSessions;
+      if (license.allowWarmup === undefined) allowWarmup = u.allowWarmup;
+      if (license.allowInclusion === undefined) allowInclusion = u.allowInclusion;
+      if (license.allowMessager === undefined) allowMessager = u.allowMessager;
+      if (license.allowDisplay === undefined) allowDisplay = u.allowDisplay;
+    } else if (license.maxSessions === undefined) {
+      // Fallback baseado no plano se o usuário SaaS não estiver diretamente vinculado
+      const planName = (license.plan || 'STANDARD').toUpperCase();
+      if (planName === 'GOLD' || planName === 'PREMIUM' || planName === 'ENTERPRISE') {
+        maxSessions = 10;
+      } else if (planName === 'SILVER' || planName === 'STANDARD' || planName === 'PRO') {
+        maxSessions = 5;
+      } else {
+        maxSessions = 1;
+        allowWarmup = false;
+        allowInclusion = false;
+        allowMessager = false;
+        allowDisplay = false;
+      }
+    }
+
     // ── Sucesso ─────────────────────────────────────────────────
     return NextResponse.json({
       valid: true,
       status: 'ATIVA',
       clientName: license.customer.name,
+      clientEmail: license.customer.email,
       expiresAt: license.expiresAt?.toISOString() ?? null,
       plan: license.plan,
+      maxSessions,
+      allowWarmup,
+      allowInclusion,
+      allowMessager,
+      allowDisplay,
       message: `Licença ativa. Bem-vindo, ${license.customer.name}!`,
     });
 

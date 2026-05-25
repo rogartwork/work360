@@ -92,6 +92,11 @@ model DesktopLicense {
   customerId String
   customer   Customer  @relation(fields: [customerId], references: [id])
   plan       String    @default("STANDARD")
+  maxSessions Int      @default(5)
+  allowWarmup Boolean  @default(true)
+  allowInclusion Boolean @default(true)
+  allowMessager Boolean @default(true)
+  allowDisplay Boolean @default(true)
   machineId  String?
   label      String?   // Apelido customizado da licença (ex: PC Escritório)
   isActive   Boolean   @default(true)

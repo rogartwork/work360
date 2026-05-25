@@ -20,7 +20,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(body.isActive !== undefined && { isActive: body.isActive }),
         ...(body.plan && { plan: body.plan }),
         ...(body.expiresAt !== undefined && { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null }),
-        // Permite reset do machineId para transferência de máquina
+        ...(body.maxSessions !== undefined && { maxSessions: Number(body.maxSessions) }),
+        ...(body.allowWarmup !== undefined && { allowWarmup: body.allowWarmup }),
+        ...(body.allowInclusion !== undefined && { allowInclusion: body.allowInclusion }),
+        ...(body.allowMessager !== undefined && { allowMessager: body.allowMessager }),
+        ...(body.allowDisplay !== undefined && { allowDisplay: body.allowDisplay }),
+        // Allows reset of machineId for hardware transfer
         ...(body.resetMachine === true && { machineId: null }),
       },
     });

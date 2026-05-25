@@ -34,8 +34,6 @@ import CRMView from "./CRMView";
 import SupportView from "./SupportView";
 import SupportReportsView from "./SupportReportsView";
 import InboxView from "./InboxView";
-import AdminView from "./AdminView";
-import { LucideSettings } from "lucide-react";
 
 interface License {
   sourceDbId: string;
@@ -83,9 +81,10 @@ export default function HubDashboard() {
   const [intervalMs, setIntervalMs] = useState(60000);
   const [showIntervalPicker, setShowIntervalPicker] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'licenses' | 'users' | 'crm' | 'suporte' | 'inbox' | 'admin'>('hub');
+  const [activeTab, setActiveTab] = useState<'hub' | 'web' | 'desktop' | 'licenses' | 'users' | 'crm' | 'suporte' | 'inbox'>('hub');
   const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [userRole, setUserRole] = useState<string>('CUSTOMER');
+  const [sessionReady, setSessionReady] = useState(false);
   const [supportFilter, setSupportFilter] = useState<'UNSOLVED' | 'OPEN' | 'URGENT' | 'CLOSED' | 'ALL'>('UNSOLVED');
   const [supportSearch, setSupportSearch] = useState('');
   const [supportSubView, setSupportSubView] = useState<'tickets' | 'reports'>('tickets');
@@ -152,12 +151,20 @@ export default function HubDashboard() {
       const res = await fetch("/api/auth/session");
       if (res.ok) {
         const data = await res.json();
-        setUserRole(data.role);
+        if (!data.isLoggedIn) {
+          router.push("/login");
+          return;
+        }
+        setUserRole(data.role ?? 'CUSTOMER');
+        setSessionReady(true);
+      } else {
+        router.push("/login");
       }
     } catch (err) {
       console.error(err);
+      router.push("/login");
     }
-  }, []);
+  }, [router]);
 
   const fetchTicketsCount = useCallback(async () => {
     try {
@@ -174,6 +181,10 @@ export default function HubDashboard() {
 
   useEffect(() => {
     fetchSession();
+  }, [fetchSession]);
+
+  useEffect(() => {
+    if (!sessionReady) return;
     fetchLicenses();
     fetchTicketsCount();
     const timer = setInterval(() => {
@@ -181,7 +192,7 @@ export default function HubDashboard() {
       fetchTicketsCount();
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [fetchLicenses, fetchTicketsCount, intervalMs, fetchSession]);
+  }, [fetchLicenses, fetchTicketsCount, intervalMs, sessionReady]);
 
   useEffect(() => {
     if (activeTab !== 'hub' && activeTab !== 'suporte') {
@@ -190,6 +201,17 @@ export default function HubDashboard() {
   }, [activeTab]);
 
   const selectedOption = REFRESH_OPTIONS.find((o) => o.value === intervalMs) ?? REFRESH_OPTIONS[0];
+
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen bg-[#131416] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Autenticando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#131416] text-slate-100 flex relative overflow-hidden selection:bg-blue-500/30">
@@ -263,15 +285,6 @@ export default function HubDashboard() {
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'users' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
             >
               <LucideShieldCheck size={15} /> Gestão de Acessos
-            </button>
-          )}
-
-          {(userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') && (
-            <button
-              onClick={() => setActiveTab('admin')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-[10px] font-bold tracking-wider uppercase ${activeTab === 'admin' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300 border border-transparent'}`}
-            >
-              <LucideSettings size={15} /> Administração
             </button>
           )}
 
@@ -410,7 +423,6 @@ export default function HubDashboard() {
                     activeTab === 'crm' ? 'Gestão de Clientes' :
                   activeTab === 'suporte' ? 'Central de Suporte' :
                   activeTab === 'inbox' ? 'Caixa de Entrada' :
-                  activeTab === 'admin' ? 'Administração SaaS' :
                       'Segurança e Acessos'}
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -698,8 +710,6 @@ export default function HubDashboard() {
             supportSubView === 'reports'
               ? <SupportReportsView />
               : <SupportView currentViewFilter={supportFilter} onFilterChange={setSupportFilter} searchTerm={supportSearch} onSearchChange={setSupportSearch} resetKey={supportResetKey} />
-          ) : activeTab === 'admin' ? (
-            <AdminView user={{ role: userRole }} />
           ) : (
             <UsersView />
           )}

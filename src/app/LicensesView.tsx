@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { 
-  LucideGlobe, LucidePlus, LucideTrash2, LucideRefreshCcw, 
-  LucideActivity, LucideShieldCheck, LucideUser, LucideX, 
+import {
+  LucideGlobe, LucidePlus, LucideTrash2, LucideRefreshCcw,
+  LucideActivity, LucideShieldCheck, LucideUser, LucideX,
   LucideCalendar, LucideMonitorSmartphone, LucideSearch,
   LucideArrowUpDown, LucideChevronUp, LucideChevronDown,
-  LucideSettings, LucideKey, LucideCopy, LucideAlertTriangle
+  LucideSettings, LucideKey, LucideCopy, LucideAlertTriangle,
+  LucideBrain, LucideMessageSquare, LucideMonitorPlay
 } from "lucide-react";
 
 interface LicenseUnion {
@@ -24,6 +25,10 @@ interface LicenseUnion {
   machineId?: string | null; // Desktop only (active hardware PC connection)
   expiresAt: string | null;
   lastSeenAt?: string | null; // Desktop only
+  allowWarmup?: boolean;
+  allowInclusion?: boolean;
+  allowMessager?: boolean;
+  allowDisplay?: boolean;
   type: "DESKTOP" | "WEB";
   app: string;
 }
@@ -67,7 +72,11 @@ export default function LicensesView() {
     plan: "PREMIUM",
     expiresAt: "",
     maxSessions: 5,
-    newPassword: ""
+    newPassword: "",
+    allowWarmup: true,
+    allowInclusion: true,
+    allowMessager: true,
+    allowDisplay: true,
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -119,7 +128,7 @@ export default function LicensesView() {
   const handleOpenModal = () => {
     fetchCustomers();
     setSelectedCustomerId("");
-    
+
     // Calcula a data padrão de 30 dias a partir de hoje
     const today = new Date();
     const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -127,7 +136,7 @@ export default function LicensesView() {
     const mm = String(thirtyDaysLater.getMonth() + 1).padStart(2, '0');
     const dd = String(thirtyDaysLater.getDate()).padStart(2, '0');
     const defaultDateStr = `${yyyy}-${mm}-${dd}`;
-    
+
     setNewExpiresAt(defaultDateStr);
     setNewType("DESKTOP"); // Default creation type is always DESKTOP (primary app)
     setNewMaxSessions(5); // Pre-filled with 5 chips
@@ -147,10 +156,11 @@ export default function LicensesView() {
         const res = await fetch("/api/desktop-licenses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            customerId: selectedCustomerId, 
+          body: JSON.stringify({
+            customerId: selectedCustomerId,
             plan: "PREMIUM", // Default unified PREMIUM plan
-            expiresAt: newExpiresAt || null
+            expiresAt: newExpiresAt || null,
+            maxSessions: newMaxSessions
           }),
         });
         if (res.ok) {
@@ -169,7 +179,7 @@ export default function LicensesView() {
         const res = await fetch("/api/web-licenses", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             customerId: selectedCustomerId,
             name: customer.name,
             username: autoUsername,
@@ -218,7 +228,11 @@ export default function LicensesView() {
       plan: lic.plan || "PREMIUM",
       expiresAt: lic.expiresAt ? lic.expiresAt.substring(0, 10) : "",
       maxSessions: lic.maxSessions || 5, // Default/current sessions
-      newPassword: ""
+      newPassword: "",
+      allowWarmup: lic.allowWarmup ?? true,
+      allowInclusion: lic.allowInclusion ?? true,
+      allowMessager: lic.allowMessager ?? true,
+      allowDisplay: lic.allowDisplay ?? true,
     });
   };
 
@@ -229,14 +243,18 @@ export default function LicensesView() {
 
     setSavingEdit(true);
     const endpoint = editingLicense.type === "DESKTOP" ? "desktop-licenses" : "web-licenses";
-    
+
     try {
       const payload: any = {
-        plan: "PREMIUM", // Keep standard unified plan
+        plan: editForm.plan,
         expiresAt: editForm.expiresAt || null,
-        ...(editingLicense.type === "WEB" && { 
-          maxSessions: editForm.maxSessions,
-          ...(editForm.newPassword.trim() && { password: editForm.newPassword })
+        maxSessions: editForm.maxSessions,
+        ...(editingLicense.type === "WEB" && editForm.newPassword.trim() && { password: editForm.newPassword }),
+        ...(editingLicense.type === "DESKTOP" && {
+          allowWarmup: editForm.allowWarmup,
+          allowInclusion: editForm.allowInclusion,
+          allowMessager: editForm.allowMessager,
+          allowDisplay: editForm.allowDisplay,
         })
       };
 
@@ -250,7 +268,8 @@ export default function LicensesView() {
         setEditingLicense(null);
         fetchLicenses();
       } else {
-        alert("Erro ao atualizar licença");
+        const errorData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+        alert(`Erro ao atualizar licença: ${errorData.error}`);
       }
     } catch (e) {
       console.error(e);
@@ -263,7 +282,7 @@ export default function LicensesView() {
   const deleteLicense = async (lic: LicenseUnion) => {
     const name = lic.customer?.name || "esta licença";
     if (!confirm(`ATENÇÃO PERIGO!\n\nTem certeza absoluta que deseja EXCLUIR a licença ${lic.type} de ${name} permanentemente?\nEsta ação não poderá ser desfeita.`)) return;
-    
+
     const endpoint = lic.type === "DESKTOP" ? "desktop-licenses" : "web-licenses";
     try {
       const res = await fetch(`/api/${endpoint}/${lic.id}`, { method: "DELETE" });
@@ -322,14 +341,14 @@ export default function LicensesView() {
 
   // Filter licenses based on search and type filter
   const filteredLicenses = licenses.filter(lic => {
-    const matchesSearch = 
+    const matchesSearch =
       (lic.customer?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       lic.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (lic.username || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (lic.key || "").toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesType = typeFilter === "ALL" || lic.type === typeFilter;
-    
+
     return matchesSearch && matchesType;
   });
 
@@ -400,7 +419,7 @@ export default function LicensesView() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
@@ -409,9 +428,9 @@ export default function LicensesView() {
           </h2>
           <p className="text-xs text-slate-500 mt-1 font-bold">Painel Único de Licenciamento (Web & Desktop)</p>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-3">
-          
+
           {/* SEARCH BAR */}
           <div className="relative">
             <LucideSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -430,11 +449,10 @@ export default function LicensesView() {
               <button
                 key={filter}
                 onClick={() => setTypeFilter(filter)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all ${
-                  typeFilter === filter 
-                    ? "bg-blue-600 text-white shadow-lg" 
-                    : "text-slate-500 hover:text-slate-300"
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all ${typeFilter === filter
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-500 hover:text-slate-300"
+                  }`}
               >
                 {filter === "ALL" ? "TODAS" : filter}
               </button>
@@ -464,9 +482,9 @@ export default function LicensesView() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 border-b border-white/5 select-none">
-                
+
                 {/* SORTABLE HEADERS */}
-                <th 
+                <th
                   onClick={() => requestSort("status")}
                   className="px-8 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -475,7 +493,7 @@ export default function LicensesView() {
                     {renderSortIcon("status")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("titular")}
                   className="px-6 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -484,7 +502,7 @@ export default function LicensesView() {
                     {renderSortIcon("titular")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("app")}
                   className="px-6 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -493,7 +511,7 @@ export default function LicensesView() {
                     {renderSortIcon("app")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("tipo")}
                   className="px-6 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -502,7 +520,7 @@ export default function LicensesView() {
                     {renderSortIcon("tipo")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("plano")}
                   className="px-6 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -511,7 +529,7 @@ export default function LicensesView() {
                     {renderSortIcon("plano")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("chips")}
                   className="px-6 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -520,7 +538,7 @@ export default function LicensesView() {
                     {renderSortIcon("chips")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("vencimento")}
                   className="px-6 py-4 cursor-pointer hover:text-white transition-colors group"
                 >
@@ -529,7 +547,7 @@ export default function LicensesView() {
                     {renderSortIcon("vencimento")}
                   </div>
                 </th>
-                <th 
+                <th
                   onClick={() => requestSort("origem")}
                   className="px-8 py-4 text-right cursor-pointer hover:text-white transition-colors group"
                 >
@@ -554,16 +572,15 @@ export default function LicensesView() {
                   const expiry = formatExpiry(lic.expiresAt);
                   return (
                     <tr key={lic.id} className={`group hover:bg-white/[0.02] transition-all duration-300 ${!lic.isActive ? "opacity-40 grayscale" : ""}`}>
-                      
+
                       {/* STATUS TOGGLE */}
                       <td className="px-8 py-4">
                         <button
                           onClick={() => toggleActive(lic)}
-                          className={`w-6 h-6 rounded-md flex items-center justify-center status-ring border transition-all ${
-                            lic.isActive 
-                              ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10" 
-                              : "text-rose-500 border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10"
-                          }`}
+                          className={`w-6 h-6 rounded-md flex items-center justify-center status-ring border transition-all ${lic.isActive
+                            ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
+                            : "text-rose-500 border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10"
+                            }`}
                           title={lic.isActive ? "Desativar Licença" : "Ativar Licença"}
                         >
                           <LucideActivity size={12} className={lic.isActive ? "animate-pulse" : ""} />
@@ -573,11 +590,10 @@ export default function LicensesView() {
                       {/* TITULAR | ID LICENÇA */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300 ${
-                            lic.type === "DESKTOP" 
-                              ? "bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white" 
-                              : "bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white"
-                          }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300 ${lic.type === "DESKTOP"
+                            ? "bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white"
+                            : "bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white"
+                            }`}>
                             {lic.type === "DESKTOP" ? <LucideMonitorSmartphone size={12} /> : <LucideGlobe size={12} />}
                           </div>
                           <div>
@@ -610,11 +626,10 @@ export default function LicensesView() {
 
                       {/* TIPO */}
                       <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-wider border ${
-                          lic.type === "DESKTOP" 
-                            ? "bg-purple-500/10 text-purple-400 border-purple-500/20" 
-                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-wider border ${lic.type === "DESKTOP"
+                          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          }`}>
                           {lic.type}
                         </span>
                       </td>
@@ -627,25 +642,25 @@ export default function LicensesView() {
                       </td>
 
                       {/* CHIPS ATIVOS (Both default to 5 Active Chips capacity) */}
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         {lic.type === "DESKTOP" ? (
                           <>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-sm font-bold text-white leading-none">{lic.machineId ? "1" : "0"}</span>
-                              <span className="text-[8px] text-slate-600 font-bold">/ 5 CHIPS</span>
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-[12px] font-black text-white leading-none">{lic.machineId ? "1" : "0"}</span>
+                              <span className="text-[10px] text-slate-500 font-bold tracking-wider">/ {lic.maxSessions || 5} CHIPS</span>
                             </div>
                             <div className="w-16 h-1 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
                               <div
                                 className={`h-full transition-all duration-1000 ${lic.machineId ? "bg-emerald-500" : "bg-slate-700"}`}
-                                style={{ width: lic.machineId ? "20%" : "0%" }} // 1 out of 5 slots used when bound
+                                style={{ width: lic.machineId ? `${(1 / (lic.maxSessions || 5)) * 100}%` : "0%" }}
                               />
                             </div>
                           </>
                         ) : (
                           <>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-sm font-bold text-white leading-none">{lic.maxSessions || 5}</span>
-                              <span className="text-[8px] text-slate-600 font-bold">/ {lic.maxSessions || 5} CHIPS</span>
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-lg font-black text-white leading-none">{lic.maxSessions || 5}</span>
+                              <span className="text-[10px] text-slate-500 font-bold tracking-wider">/ {lic.maxSessions || 5} CHIPS</span>
                             </div>
                             <div className="w-16 h-1 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
                               <div
@@ -741,7 +756,7 @@ export default function LicensesView() {
             </h3>
 
             <form onSubmit={handleCreate} className="space-y-5">
-              
+
               {/* TIPO SELETOR (Desktop is the default first option) */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tipo de Licença</label>
@@ -749,22 +764,20 @@ export default function LicensesView() {
                   <button
                     type="button"
                     onClick={() => setNewType("DESKTOP")}
-                    className={`flex-1 py-3.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                      newType === "DESKTOP" 
-                        ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30" 
-                        : "text-slate-500 hover:text-slate-300"
-                    }`}
+                    className={`flex-1 py-3.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${newType === "DESKTOP"
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-600/30"
+                      : "text-slate-500 hover:text-slate-300"
+                      }`}
                   >
                     <LucideMonitorSmartphone size={14} /> Desktop (Principal)
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewType("WEB")}
-                    className={`flex-1 py-3.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${
-                      newType === "WEB" 
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" 
-                        : "text-slate-500 hover:text-slate-300"
-                    }`}
+                    className={`flex-1 py-3.5 rounded-lg text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${newType === "WEB"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
+                      : "text-slate-500 hover:text-slate-300"
+                      }`}
                   >
                     <LucideGlobe size={14} /> Web (Painel)
                   </button>
@@ -862,7 +875,7 @@ export default function LicensesView() {
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-5">
-              
+
               {/* DETAILS SECTION */}
               <div className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl space-y-2.5">
                 <div className="flex justify-between items-center text-xs">
@@ -872,15 +885,14 @@ export default function LicensesView() {
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo / App</span>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                      editingLicense.type === "DESKTOP" ? "bg-purple-500/20 text-purple-400" : "bg-emerald-500/20 text-emerald-400"
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${editingLicense.type === "DESKTOP" ? "bg-purple-500/20 text-purple-400" : "bg-emerald-500/20 text-emerald-400"
+                      }`}>
                       {editingLicense.type}
                     </span>
                     <span className="text-[10px] font-bold text-slate-400">NEXUS360</span>
                   </div>
                 </div>
-                
+
                 {/* Desktop Specific key display */}
                 {editingLicense.type === "DESKTOP" && editingLicense.key && (
                   <div className="pt-2 border-t border-white/5">
@@ -913,9 +925,24 @@ export default function LicensesView() {
 
               {/* EDITABLE FIELDS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* EXPIRY */}
+
+                {/* PLAN */}
                 <div className="col-span-1 md:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Plano da Licença</label>
+                  <select
+                    value={editForm.plan}
+                    onChange={e => setEditForm({ ...editForm, plan: e.target.value })}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-blue-500 outline-none transition-all"
+                  >
+                    <option value="STANDARD" className="bg-slate-900">Standard</option>
+                    <option value="PRO" className="bg-slate-900">Pro</option>
+                    <option value="PREMIUM" className="bg-slate-900">Premium</option>
+                    <option value="ENTERPRISE" className="bg-slate-900">Enterprise</option>
+                  </select>
+                </div>
+
+                {/* EXPIRY */}
+                <div className="col-span-1 md:col-span-2 mt-2">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Data de Expiração</label>
                   <input
                     type="date"
@@ -926,21 +953,21 @@ export default function LicensesView() {
                   />
                 </div>
 
-                {/* Chips configuration (Unified visual limit control) */}
+                {/* CHIPS LIMIT — editable for both WEB and DESKTOP */}
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Limite de Chips (Conexões)</label>
                   <input
                     type="number"
                     min="1"
-                    value={editingLicense.type === "WEB" ? editForm.maxSessions : 5}
-                    disabled={editingLicense.type === "DESKTOP"} // Fixed to 5 for Desktop (or editable if using Web config)
-                    onChange={e => setEditForm({ ...editForm, maxSessions: parseInt(e.target.value) || 5 })}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-blue-500 outline-none transition-all disabled:opacity-50"
+                    max="50"
+                    value={editForm.maxSessions}
+                    onChange={e => setEditForm({ ...editForm, maxSessions: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-blue-500 outline-none transition-all"
                   />
                   <p className="text-[8px] text-slate-500 font-bold uppercase mt-1.5 leading-normal">
-                    {editingLicense.type === "DESKTOP" 
-                      ? "* A versão Desktop do NEXUS360 vem configurada para rodar com limite de 5 chips ativos por padrão."
-                      : "* Acesso Web configurável de sessões do WhatsApp."
+                    {editingLicense.type === "DESKTOP"
+                      ? "* Chips suportados pelo cliente nesta licença Desktop."
+                      : "* Número de sessões WhatsApp simultâneas para o Painel Web."
                     }
                   </p>
                 </div>
@@ -959,32 +986,61 @@ export default function LicensesView() {
                   </div>
                 )}
 
-                {/* Desktop Specific hardware linkage */}
+                {/* Desktop Specific hardware linkage & Feature Toggles */}
                 {editingLicense.type === "DESKTOP" && (
-                  <div className="col-span-1 md:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Hardware / Computador Ativo</label>
-                    {editingLicense.machineId ? (
-                      <div className="flex items-center justify-between bg-emerald-500/5 border border-emerald-500/20 p-3.5 rounded-xl">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] font-mono text-emerald-400 font-bold truncate max-w-[220px]">
-                            ID: {editingLicense.machineId}
-                          </span>
-                          <span className="text-[8px] font-bold text-emerald-600 uppercase">Computador Vinculado</span>
+                  <>
+                    <div className="col-span-1 md:col-span-2 mt-2 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Módulos Habilitados</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { key: 'allowWarmup', label: 'iA Chat', icon: <LucideBrain size={12} /> },
+                          { key: 'allowInclusion', label: 'Inclusão', icon: <LucidePlus size={12} /> },
+                          { key: 'allowMessager', label: 'Messager', icon: <LucideMessageSquare size={12} /> },
+                          { key: 'allowDisplay', label: 'Display', icon: <LucideMonitorPlay size={12} /> }
+                        ].map(f => (
+                          <label key={f.key} className="flex items-center gap-2 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={editForm[f.key as keyof typeof editForm] as boolean}
+                              onChange={(e) => setEditForm({ ...editForm, [f.key]: e.target.checked })}
+                              className="hidden"
+                            />
+                            <div className={`w-4 h-4 rounded-md border border-white/10 flex items-center justify-center transition-all ${editForm[f.key as keyof typeof editForm] ? 'bg-blue-500 border-blue-400' : 'bg-white/[0.03] border border-white/5'}`}>
+                              {editForm[f.key as keyof typeof editForm] && <LucideShieldCheck size={10} className="text-white" />}
+                            </div>
+                            <span className={`text-[10px] font-bold uppercase transition-colors flex items-center gap-1.5 ${editForm[f.key as keyof typeof editForm] ? 'text-white' : 'text-slate-400 opacity-30'}`}>
+                              {f.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Hardware / Computador Ativo</label>
+                      {editingLicense.machineId ? (
+                        <div className="flex items-center justify-between bg-emerald-500/5 border border-emerald-500/20 p-3.5 rounded-xl">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-mono text-emerald-400 font-bold truncate max-w-[220px]">
+                              ID: {editingLicense.machineId}
+                            </span>
+                            <span className="text-[8px] font-bold text-emerald-600 uppercase">Computador Vinculado</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => resetMachine(editingLicense.id)}
+                            className="px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors"
+                          >
+                            Liberar PC
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => resetMachine(editingLicense.id)}
-                          className="px-3 py-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors"
-                        >
-                          Liberar PC
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="bg-white/5 border border-white/5 p-3.5 rounded-xl text-center">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Aguardando ativação em algum PC</span>
-                      </div>
-                    )}
-                  </div>
+                      ) : (
+                        <div className="bg-white/5 border border-white/5 p-3.5 rounded-xl text-center">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Aguardando ativação em algum PC</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
 
               </div>
@@ -1006,7 +1062,7 @@ export default function LicensesView() {
                   <LucideAlertTriangle size={16} />
                   <span className="text-[10px] font-black uppercase tracking-widest">Zona de Perigo</span>
                 </div>
-                
+
                 <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
                     <h4 className="text-xs font-black text-rose-400 uppercase">Excluir Licença</h4>
