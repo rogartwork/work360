@@ -17,11 +17,11 @@ export async function GET() {
       include: {
         licenses: {
           orderBy: { createdAt: 'desc' },
-          take: 5
+          take: 10
         },
         webLicenses: {
           orderBy: { createdAt: 'desc' },
-          take: 5
+          take: 10
         },
         subscriptions: {
           orderBy: { createdAt: 'desc' },

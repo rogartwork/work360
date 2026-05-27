@@ -235,7 +235,7 @@ export default function HubDashboard() {
             <div className="absolute -top-1 -right-3 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#131416] animate-pulse" />
           </div>
           <div className="flex flex-col items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
-            <span className="text-[8px] text-slate-500 font-bold tracking-[0.2em] uppercase">v1.1.0</span>
+            <span className="text-[8px] text-slate-500 font-bold tracking-[0.2em] uppercase">v1.4.0</span>
             {isSimulated && (
               <span className="text-[8px] text-amber-500/80 font-bold tracking-[0.2em] uppercase animate-pulse">
                 SIMULAÇÃO
@@ -426,7 +426,7 @@ export default function HubDashboard() {
                       'Segurança e Acessos'}
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                {activeTab === 'suporte' ? 'Fila de atendimento em tempo real' : 'Plataforma WORK360 · v1.1.0'}
+                {activeTab === 'suporte' ? 'Fila de atendimento em tempo real' : 'Plataforma WORK360 · v1.4.0'}
               </p>
             </div>
 
