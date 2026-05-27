@@ -64,17 +64,39 @@ export async function POST(req: Request) {
           }
         });
 
-        // 4. Criar Usuário para Login no Sistema
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await prisma.user.create({
+        // 4. Criar Usuário para Login no Sistema (Portal do Cliente)
+        let user = await prisma.user.findUnique({
+          where: { username: customer_email }
+        });
+
+        if (!user) {
+          const hashedPassword = await bcrypt.hash(password, 10);
+          user = await prisma.user.create({
+            data: {
+              username: customer_email,
+              email: customer_email,
+              password: hashedPassword,
+              role: "CUSTOMER"
+            }
+          });
+        }
+
+        // Vincular o User ID ao Customer
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { userId: user.id }
+        });
+
+        // Registrar no histórico do cliente (CRM) com a senha temporária gerada
+        await prisma.interactionLog.create({
           data: {
-            username: username,
-            password: hashedPassword,
-            role: "CUSTOMER"
+            customerId: customer.id,
+            type: "SYSTEM",
+            content: `Acesso ao portal ativado automaticamente (Mercado Pago). Usuário: ${customer_email} | Senha temporária: ${password}`
           }
         });
 
-        console.log(`[MP WEBHOOK] Fluxo completo para ${customer_email}: Customer + Subscription + WebLicense + User Login criado.`);
+        console.log(`[MP WEBHOOK] Fluxo completo para ${customer_email}: Customer + Subscription + WebLicense + User Login vinculado criado.`);
       }
     }
 

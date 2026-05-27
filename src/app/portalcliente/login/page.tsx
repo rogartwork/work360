@@ -180,7 +180,7 @@ export default function PortalClienteLoginPage() {
             <div className="w-1.5 h-1.5 bg-[#38bdf8] rounded-full animate-pulse-subtle" />
             <span>Segurança Ativa</span>
           </div>
-          <span>Nexus360 Portal v1.0</span>
+          <span>Nexus360 Portal v1.2.0</span>
         </div>
       </div>
     </main>

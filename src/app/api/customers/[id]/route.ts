@@ -10,6 +10,15 @@ export async function GET(
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          isActive: true,
+          createdAt: true
+        }
+      },
       Ticket: {
         orderBy: { createdAt: "desc" },
         include: {

@@ -19,6 +19,10 @@ export async function GET() {
           orderBy: { createdAt: 'desc' },
           take: 5
         },
+        webLicenses: {
+          orderBy: { createdAt: 'desc' },
+          take: 5
+        },
         subscriptions: {
           orderBy: { createdAt: 'desc' },
           take: 10

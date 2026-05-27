@@ -6,7 +6,7 @@ import {
   LucideActivity, LucideMessageSquare, LucideShield, LucideServer,
   LucideSend, LucideEdit, LucideSave, LucideTicket, LucideCreditCard,
   LucideSmartphone, LucideGlobe, LucideWifi, LucideLoader2,
-  LucideCheckCircle, LucideAlertCircle, LucideCalendar, LucideTag
+  LucideCheckCircle, LucideAlertCircle, LucideCalendar, LucideTag, LucideKey
 } from "lucide-react";
 
 interface CustomerProfileProps {
@@ -86,6 +86,84 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [savingEdit, setSavingEdit] = useState(false);
+  const [portalPassword, setPortalPassword] = useState("");
+  const [showPortalForm, setShowPortalForm] = useState(false);
+  const [portalAction, setPortalAction] = useState<"enable" | "reset" | null>(null);
+  const [submittingPortal, setSubmittingPortal] = useState(false);
+  const [portalError, setPortalError] = useState("");
+  const [portalSuccess, setPortalSuccess] = useState("");
+
+  const generateStrongPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+    let pass = "";
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setPortalPassword(pass);
+  };
+
+  const handlePortalAccessSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!portalPassword) return;
+    setSubmittingPortal(true);
+    setPortalError("");
+    setPortalSuccess("");
+
+    try {
+      const method = portalAction === "enable" ? "POST" : "PUT";
+      const res = await fetch(`/api/customers/${customerId}/portal-access`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: portalPassword })
+      });
+
+      if (res.ok) {
+        setPortalSuccess(
+          portalAction === "enable" 
+            ? "Acesso ao portal liberado com sucesso!" 
+            : "Senha redefinida com sucesso!"
+        );
+        setPortalPassword("");
+        setShowPortalForm(false);
+        setPortalAction(null);
+        await fetchCustomer();
+      } else {
+        const data = await res.json();
+        setPortalError(data.error || "Erro ao realizar operação");
+      }
+    } catch (err) {
+      setPortalError("Erro de conexão ao servidor");
+    } finally {
+      setSubmittingPortal(false);
+    }
+  };
+
+  const handlePortalAccessRevoke = async () => {
+    if (!window.confirm("Atenção: Tem certeza que deseja revogar o acesso do cliente ao portal? O usuário será excluído e ele não poderá mais fazer login.")) {
+      return;
+    }
+    setSubmittingPortal(true);
+    setPortalError("");
+    setPortalSuccess("");
+
+    try {
+      const res = await fetch(`/api/customers/${customerId}/portal-access`, {
+        method: "DELETE"
+      });
+
+      if (res.ok) {
+        setPortalSuccess("Acesso ao portal revogado com sucesso!");
+        await fetchCustomer();
+      } else {
+        const data = await res.json();
+        setPortalError(data.error || "Erro ao revogar acesso");
+      }
+    } catch (err) {
+      setPortalError("Erro de conexão ao servidor");
+    } finally {
+      setSubmittingPortal(false);
+    }
+  };
 
   const fetchCustomer = useCallback(async () => {
     setLoading(true);
@@ -326,6 +404,141 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
                     ))}
                   </div>
  
+                  {/* Painel: Acesso ao Portal */}
+                  <div className="glass-panel p-5 rounded-2xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <LucideKey size={14} className="text-blue-400" /> Acesso ao Portal
+                      </h3>
+                      {customer.user ? (
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Ativo
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-500/10 text-slate-400 border border-slate-500/10">
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+
+                    {portalSuccess && (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold">
+                        {portalSuccess}
+                      </div>
+                    )}
+                    {portalError && (
+                      <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-bold">
+                        {portalError}
+                      </div>
+                    )}
+
+                    {customer.user ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                          <div className="min-w-0 flex-1 mr-2">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Usuário / Login</p>
+                            <p className="text-[12px] text-white font-mono mt-0.5 truncate" title={customer.user.username}>{customer.user.username}</p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={() => {
+                                setPortalAction("reset");
+                                setShowPortalForm(true);
+                                setPortalPassword("");
+                                setPortalError("");
+                                setPortalSuccess("");
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-bold uppercase transition-colors border border-blue-500/15"
+                            >
+                              Alterar Senha
+                            </button>
+                            <button
+                              onClick={handlePortalAccessRevoke}
+                              disabled={submittingPortal}
+                              className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[10px] font-bold uppercase transition-colors border border-rose-500/15 disabled:opacity-50"
+                            >
+                              Revogar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] text-slate-400">Este cliente ainda não possui acesso ao portal.</p>
+                        {!showPortalForm && (
+                          <button
+                            onClick={() => {
+                              setPortalAction("enable");
+                              setShowPortalForm(true);
+                              setPortalPassword("");
+                              setPortalError("");
+                              setPortalSuccess("");
+                            }}
+                            className="px-3.5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg shadow-blue-500/10 flex items-center gap-1.5 whitespace-nowrap"
+                          >
+                            <LucideKey size={12} /> Liberar Acesso
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {showPortalForm && (
+                      <form onSubmit={handlePortalAccessSubmit} className="space-y-3 bg-white/[0.02] p-4 rounded-xl border border-white/5 animate-in fade-in duration-200">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {portalAction === "enable" ? "Definir Senha do Portal" : "Definir Nova Senha"}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowPortalForm(false)}
+                            className="text-slate-500 hover:text-slate-300 transition-colors"
+                          >
+                            <LucideX size={14} />
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            required
+                            placeholder="Mínimo 6 caracteres"
+                            value={portalPassword}
+                            onChange={(e) => setPortalPassword(e.target.value)}
+                            className="flex-1 bg-black/40 border border-white/10 focus:border-blue-500/40 rounded-lg px-3 py-2 text-xs text-white outline-none font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={generateStrongPassword}
+                            className="px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-300 text-[10px] font-bold uppercase rounded-lg border border-white/10 transition-colors whitespace-nowrap"
+                          >
+                            Gerar Senha
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setShowPortalForm(false)}
+                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 text-[10px] font-bold uppercase rounded-lg transition-colors border border-transparent"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={submittingPortal}
+                            className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg transition-colors shadow-lg shadow-blue-500/10 flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {submittingPortal ? (
+                              <LucideLoader2 size={12} className="animate-spin" />
+                            ) : (
+                              "Confirmar"
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: "Licenças", val: allLicenses.length, color: "text-blue-400", icon: LucideShield },

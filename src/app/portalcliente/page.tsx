@@ -8,7 +8,7 @@ import {
   LucideSend, LucidePlus, LucideArrowLeft, LucideActivity,
   LucideHash, LucideCheckCircle, LucideAlertCircle, LucideX,
   LucideHelpCircle, LucideLayers, LucideBrain, LucideUsers, LucideShield, LucideZap,
-  LucideCopy
+  LucideCopy, LucideGlobe
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -118,12 +118,13 @@ export default function ClientPanel() {
             email: data.email,
             phone: data.phone || "Não Cadastrado",
             licenses: data.licenses || [],
-            licenseKey: data.licenses?.[0]?.key || "SEM LICENÇA ATIVA",
-            plan: data.licenses?.[0]?.plan || "Nenhum Plano",
-            expiresAt: data.licenses?.[0]?.expiresAt || new Date().toISOString(),
+            webLicenses: data.webLicenses || [],
+            licenseKey: data.licenses?.[0]?.key || data.webLicenses?.[0]?.username || "SEM LICENÇA ATIVA",
+            plan: data.licenses?.[0]?.plan || data.webLicenses?.[0]?.plan || "Nenhum Plano",
+            expiresAt: data.licenses?.[0]?.expiresAt || data.webLicenses?.[0]?.expiresAt || new Date().toISOString(),
             createdAt: data.createdAt || new Date().toISOString(),
             status: data.status,
-            activeChips: data.licenses?.length || 0
+            activeChips: (data.licenses?.length || 0) + (data.webLicenses?.reduce((acc: number, curr: any) => acc + (curr.maxSessions || 0), 0) || 0)
           });
         } else {
           if (res.status === 401) {
@@ -134,6 +135,7 @@ export default function ClientPanel() {
           setCustomerData({
             name: "Usuário Nexus", email: "aguardando@dados.com",
             licenses: [{ key: "NX-PENDENTE", plan: "PRO", expiresAt: new Date().toISOString() }],
+            webLicenses: [],
             licenseKey: "NX-PENDENTE", plan: "Buscando...",
             expiresAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
@@ -427,44 +429,75 @@ export default function ClientPanel() {
                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                       </span>
                       <span className="text-[8px] font-mono font-black text-emerald-400 uppercase tracking-widest">ATIVA</span>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
+                                     <div className="space-y-4">
                     <div>
                       <p className="text-[8px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">Plano Contratado</p>
                       <p className="text-sm font-black text-[#eaeff5] tracking-tight">
-                        {customerData.licenses?.length || 1} {customerData.licenses?.length > 1 ? "Licenças Contratadas" : "Licença Desktop"}
+                        {customerData.licenses?.length > 0 && `${customerData.licenses.length}x Desktop`}
+                        {customerData.licenses?.length > 0 && customerData.webLicenses?.length > 0 && " · "}
+                        {customerData.webLicenses?.length > 0 && `${customerData.webLicenses.length}x Web`}
+                        {(!customerData.licenses || customerData.licenses.length === 0) && (!customerData.webLicenses || customerData.webLicenses.length === 0) && "Nenhum Plano"}
                       </p>
                     </div>
 
-                    {/* Grandiose License Box(es) */}
-                    <div className="space-y-2">
-                      <p className="text-[8px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">
-                        {customerData.licenses?.length > 1 ? "Suas Chaves de Acesso Ativas" : "Chave de Acesso Tática"}
-                      </p>
-
-                      <div className="space-y-4">
-                        {(customerData.licenses && customerData.licenses.length > 0 ? customerData.licenses : [{ key: "NX-PENDENTE" }]).map((license: any, idx: number) => {
-                          const isCopied = copiedKeyIndex === idx;
-                          return (
-                            <div key={idx} className="space-y-1.5 group/copy">
-                              <div className="flex justify-between items-center px-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[7.5px] text-[#94a3b8]/50 font-mono uppercase tracking-widest">Licença #{idx + 1}</span>
-                                  {editingLicenseId === license.id ? (
-                                    <div className="flex items-center gap-1.5 ml-1.5">
-                                      <input
-                                        type="text"
-                                        value={tempNickname}
-                                        onChange={(e) => setTempNickname(e.target.value)}
-                                        className="bg-[#191b20] border border-[#38bdf8]/30 rounded-lg px-2 py-0.5 text-[8px] font-mono text-[#eaeff5] w-28 focus:outline-none focus:border-[#38bdf8] focus:ring-1 focus:ring-[#38bdf8]/20 transition-all font-semibold"
-                                        placeholder="Apelido..."
-                                        maxLength={20}
-                                        autoFocus
-                                        onClick={(e) => e.stopPropagation()}
-                                        onKeyDown={async (e) => {
-                                          if (e.key === 'Enter') {
-                                            e.preventDefault();
+                    {/* Grandiose Desktop License Box(es) */}
+                    {(customerData.licenses && customerData.licenses.length > 0) && (
+                      <div className="space-y-2 border-b border-[#2b303b]/20 pb-4 mb-4">
+                        <p className="text-[8px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">
+                          Chaves de Acesso Desktop Ativas
+                        </p>
+                        <div className="space-y-4">
+                          {customerData.licenses.map((license: any, idx: number) => {
+                            const isCopied = copiedKeyIndex === idx;
+                            return (
+                              <div key={license.id || idx} className="space-y-1.5 group/copy">
+                                <div className="flex justify-between items-center px-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[7.5px] text-[#94a3b8]/50 font-mono uppercase tracking-widest">Licença #{idx + 1}</span>
+                                    {editingLicenseId === license.id ? (
+                                      <div className="flex items-center gap-1.5 ml-1.5">
+                                        <input
+                                          type="text"
+                                          value={tempNickname}
+                                          onChange={(e) => setTempNickname(e.target.value)}
+                                          className="bg-[#191b20] border border-[#38bdf8]/30 rounded-lg px-2 py-0.5 text-[8px] font-mono text-[#eaeff5] w-28 focus:outline-none focus:border-[#38bdf8] focus:ring-1 focus:ring-[#38bdf8]/20 transition-all font-semibold"
+                                          placeholder="Apelido..."
+                                          maxLength={20}
+                                          autoFocus
+                                          onClick={(e) => e.stopPropagation()}
+                                          onKeyDown={async (e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              if (updatingNickname) return;
+                                              setUpdatingNickname(true);
+                                              try {
+                                                const res = await fetch(`/api/customers/licenses/${license.id}`, {
+                                                  method: "PUT",
+                                                  headers: { "Content-Type": "application/json" },
+                                                  body: JSON.stringify({ label: tempNickname })
+                                                });
+                                                if (res.ok) {
+                                                  setCustomerData((prev: any) => {
+                                                    const updatedLicenses = prev.licenses.map((l: any) =>
+                                                      l.id === license.id ? { ...l, label: tempNickname } : l
+                                                    );
+                                                    return { ...prev, licenses: updatedLicenses };
+                                                  });
+                                                  setEditingLicenseId(null);
+                                                }
+                                              } catch (err) {
+                                                console.error(err);
+                                              } finally {
+                                                setUpdatingNickname(false);
+                                              }
+                                            } else if (e.key === 'Escape') {
+                                              setEditingLicenseId(null);
+                                            }
+                                          }}
+                                        />
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
                                             if (updatingNickname) return;
                                             setUpdatingNickname(true);
                                             try {
@@ -487,122 +520,166 @@ export default function ClientPanel() {
                                             } finally {
                                               setUpdatingNickname(false);
                                             }
-                                          } else if (e.key === 'Escape') {
-                                            setEditingLicenseId(null);
-                                          }
-                                        }}
-                                      />
-                                      <button
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (updatingNickname) return;
-                                          setUpdatingNickname(true);
-                                          try {
-                                            const res = await fetch(`/api/customers/licenses/${license.id}`, {
-                                              method: "PUT",
-                                              headers: { "Content-Type": "application/json" },
-                                              body: JSON.stringify({ label: tempNickname })
-                                            });
-                                            if (res.ok) {
-                                              setCustomerData((prev: any) => {
-                                                const updatedLicenses = prev.licenses.map((l: any) =>
-                                                  l.id === license.id ? { ...l, label: tempNickname } : l
-                                                );
-                                                return { ...prev, licenses: updatedLicenses };
-                                              });
-                                              setEditingLicenseId(null);
-                                            }
-                                          } catch (err) {
-                                            console.error(err);
-                                          } finally {
-                                            setUpdatingNickname(false);
-                                          }
-                                        }}
-                                        className="text-emerald-400 hover:text-emerald-300 text-[8px] font-black uppercase font-mono tracking-widest ml-0.5"
-                                      >
-                                        [OK]
-                                      </button>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); setEditingLicenseId(null); }}
-                                        className="text-rose-400 hover:text-rose-300 text-[8px] font-black uppercase font-mono tracking-widest"
-                                      >
-                                        [X]
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-1.5 ml-1.5">
-                                      {license.label && (
-                                        <span className="text-[7.5px] text-[#38bdf8] font-mono font-bold uppercase tracking-widest bg-[#38bdf8]/5 px-1.5 py-0.5 border border-[#38bdf8]/10 rounded-md">
-                                          {license.label}
-                                        </span>
-                                      )}
-                                      {license.id && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditingLicenseId(license.id);
-                                            setTempNickname(license.label || "");
                                           }}
-                                          className="opacity-40 hover:opacity-100 text-[#94a3b8] hover:text-[#38bdf8] transition-all ml-0.5"
-                                          title="Editar Apelido"
+                                          className="text-emerald-400 hover:text-emerald-300 text-[8px] font-black uppercase font-mono tracking-widest ml-0.5"
                                         >
-                                          <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                                          [OK]
                                         </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <span className="text-[7.5px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">
-                                  Expira em: <span className="text-indigo-400 font-bold">{new Date(license.expiresAt || customerData.expiresAt).toLocaleDateString("pt-BR")}</span>
-                                </span>
-                              </div>
-
-                              <div className="relative">
-                                {/* Absolute glowing aura behind with breathing animation */}
-                                <div className={`absolute inset-0 -m-1 rounded-3xl blur-md transition-all duration-500 pointer-events-none opacity-40 ${isCopied
-                                  ? "bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-none"
-                                  : "bg-[#38bdf8]/5 shadow-[0_0_15px_rgba(56,189,248,0.03)] animate-pulse group-hover/copy:animate-none group-hover/copy:bg-[#38bdf8]/10"
-                                  }`} />
-
-                                <div
-                                  onClick={() => {
-                                    if (license.key) {
-                                      navigator.clipboard.writeText(license.key);
-                                      setCopiedKeyIndex(idx);
-                                      setTimeout(() => setCopiedKeyIndex(null), 2000);
-                                    }
-                                  }}
-                                  className={`relative z-10 flex items-center justify-between gap-4 px-4 py-3 nm-inset rounded-2xl cursor-pointer hover:text-[#38bdf8] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] border overflow-hidden ${isCopied
-                                    ? "border-emerald-500/30 bg-gradient-to-r from-[#1e2128] via-emerald-500/8 to-[#1e2128]"
-                                    : "border-[#2b303b]/40 hover:border-[#38bdf8]/30 bg-gradient-to-r from-[#1e2128] via-[#38bdf8]/2 to-[#1e2128]"
-                                    }`}
-                                  title="Clique para copiar a chave de acesso"
-                                >
-                                  {/* High-tech Laser Shine Sweep Effect */}
-                                  <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none z-0">
-                                    <div className="w-16 h-full bg-gradient-to-r from-transparent via-[#38bdf8]/15 to-transparent -skew-x-20 absolute -left-20 transition-all duration-1000 ease-out group-hover/copy:translate-x-[600px] pointer-events-none" />
-                                  </div>
-
-                                  <span className="relative z-10 text-xs md:text-sm font-mono font-black tracking-widest text-[#eaeff5] group-hover/copy:text-[#38bdf8] group-hover/copy:drop-shadow-[0_0_6px_rgba(56,189,248,0.5)] transition-all uppercase select-all">
-                                    {isCopied ? "COPIADA COM SUCESSO!" : (license.key || "NX-PENDENTE")}
-                                  </span>
-
-                                  <div className="relative z-10 flex items-center gap-1.5 px-2.5 py-1 nm-button rounded-xl text-[8px] font-mono font-black uppercase tracking-widest shrink-0 transition-all text-[#94a3b8] group-hover/copy:text-[#38bdf8] group-hover/copy:nm-flat">
-                                    {isCopied ? (
-                                      <span className="text-emerald-400">COPIADO</span>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setEditingLicenseId(null); }}
+                                          className="text-rose-400 hover:text-rose-300 text-[8px] font-black uppercase font-mono tracking-widest"
+                                        >
+                                          [X]
+                                        </button>
+                                      </div>
                                     ) : (
-                                      <>
-                                        <LucideCopy size={10} className="text-[#94a3b8]/60 group-hover/copy:text-[#38bdf8] transition-colors shrink-0" />
-                                        COPIAR
-                                      </>
+                                      <div className="flex items-center gap-1.5 ml-1.5">
+                                        {license.label && (
+                                          <span className="text-[7.5px] text-[#38bdf8] font-mono font-bold uppercase tracking-widest bg-[#38bdf8]/5 px-1.5 py-0.5 border border-[#38bdf8]/10 rounded-md">
+                                            {license.label}
+                                          </span>
+                                        )}
+                                        {license.id && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingLicenseId(license.id);
+                                              setTempNickname(license.label || "");
+                                            }}
+                                            className="opacity-40 hover:opacity-100 text-[#94a3b8] hover:text-[#38bdf8] transition-all ml-0.5"
+                                            title="Editar Apelido"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                                          </button>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
+                                  <span className="text-[7.5px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">
+                                    Expira: <span className="text-indigo-400 font-bold">{new Date(license.expiresAt || customerData.expiresAt).toLocaleDateString("pt-BR")}</span>
+                                  </span>
+                                </div>
+
+                                <div className="relative">
+                                  <div className={`absolute inset-0 -m-1 rounded-3xl blur-md transition-all duration-500 pointer-events-none opacity-40 ${isCopied
+                                    ? "bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.2)] animate-none"
+                                    : "bg-[#38bdf8]/5 shadow-[0_0_15px_rgba(56,189,248,0.03)] animate-pulse group-hover/copy:animate-none group-hover/copy:bg-[#38bdf8]/10"
+                                    }`} />
+
+                                  <div
+                                    onClick={() => {
+                                      if (license.key) {
+                                        navigator.clipboard.writeText(license.key);
+                                        setCopiedKeyIndex(idx);
+                                        setTimeout(() => setCopiedKeyIndex(null), 2000);
+                                      }
+                                    }}
+                                    className={`relative z-10 flex items-center justify-between gap-4 px-4 py-3 nm-inset rounded-2xl cursor-pointer hover:text-[#38bdf8] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] border overflow-hidden ${isCopied
+                                      ? "border-emerald-500/30 bg-gradient-to-r from-[#1e2128] via-emerald-500/8 to-[#1e2128]"
+                                      : "border-[#2b303b]/40 hover:border-[#38bdf8]/30 bg-gradient-to-r from-[#1e2128] via-[#38bdf8]/2 to-[#1e2128]"
+                                      }`}
+                                    title="Clique para copiar a chave"
+                                  >
+                                    <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none z-0">
+                                      <div className="w-16 h-full bg-gradient-to-r from-transparent via-[#38bdf8]/15 to-transparent -skew-x-20 absolute -left-20 transition-all duration-1000 ease-out group-hover/copy:translate-x-[600px] pointer-events-none" />
+                                    </div>
+
+                                    <span className="relative z-10 text-xs md:text-sm font-mono font-black tracking-widest text-[#eaeff5] group-hover/copy:text-[#38bdf8] group-hover/copy:drop-shadow-[0_0_6px_rgba(56,189,248,0.5)] transition-all uppercase select-all">
+                                      {isCopied ? "COPIADA COM SUCESSO!" : (license.key || "NX-PENDENTE")}
+                                    </span>
+
+                                    <div className="relative z-10 flex items-center gap-1.5 px-2.5 py-1 nm-button rounded-xl text-[8px] font-mono font-black uppercase tracking-widest shrink-0 transition-all text-[#94a3b8] group-hover/copy:text-[#38bdf8] group-hover/copy:nm-flat">
+                                      {isCopied ? (
+                                        <span className="text-emerald-400">COPIADO</span>
+                                      ) : (
+                                        <>
+                                          <LucideCopy size={10} className="text-[#94a3b8]/60 group-hover/copy:text-[#38bdf8] transition-colors shrink-0" />
+                                          COPIAR
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
+                    )}
+
+                    {/* Grandiose Web License Box(es) */}
+                    {(customerData.webLicenses && customerData.webLicenses.length > 0) && (
+                      <div className="space-y-2">
+                        <p className="text-[8px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">
+                          Painéis de Acesso Web Ativos
+                        </p>
+                        <div className="space-y-4">
+                          {customerData.webLicenses.map((license: any, idx: number) => {
+                            const webCopiedIdx = 2000 + idx;
+                            const isCopied = copiedKeyIndex === webCopiedIdx;
+                            return (
+                              <div key={license.id || idx} className="space-y-1.5 group/copy bg-emerald-500/[0.01] p-3 rounded-2xl border border-emerald-500/5 hover:border-emerald-500/10 transition-all">
+                                <div className="flex justify-between items-center px-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[7.5px] text-[#94a3b8]/50 font-mono uppercase tracking-widest">Instância Web #{idx + 1}</span>
+                                    <span className="text-[7.5px] text-emerald-400 font-mono font-bold uppercase tracking-widest bg-emerald-500/5 px-1.5 py-0.5 border border-emerald-500/10 rounded-md">
+                                      {license.plan || "PREMIUM"}
+                                    </span>
+                                  </div>
+                                  <span className="text-[7.5px] text-[#94a3b8]/60 font-mono uppercase tracking-widest">
+                                    Expira: <span className="text-indigo-400 font-bold">{new Date(license.expiresAt || customerData.expiresAt).toLocaleDateString("pt-BR")}</span>
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1 text-[9px] font-mono">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[#94a3b8]/40 uppercase tracking-widest text-[7.5px]">Usuário</span>
+                                    <div
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(license.username);
+                                        setCopiedKeyIndex(webCopiedIdx);
+                                        setTimeout(() => setCopiedKeyIndex(null), 2000);
+                                      }}
+                                      className="nm-inset px-2.5 py-2 cursor-pointer rounded-xl flex items-center justify-between text-[#eaeff5] hover:text-[#38bdf8] transition-all"
+                                    >
+                                      <span className="truncate mr-1 font-bold">{isCopied ? "COPIADO!" : license.username}</span>
+                                      <LucideCopy size={9} className="opacity-50 shrink-0" />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[#94a3b8]/40 uppercase tracking-widest text-[7.5px]">Senha</span>
+                                    <div
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(license.password);
+                                        setCopiedKeyIndex(webCopiedIdx + 100);
+                                        setTimeout(() => setCopiedKeyIndex(null), 2000);
+                                      }}
+                                      className="nm-inset px-2.5 py-2 cursor-pointer rounded-xl flex items-center justify-between text-[#eaeff5] hover:text-[#38bdf8] transition-all"
+                                    >
+                                      <span className="truncate mr-1 font-bold">{copiedKeyIndex === (webCopiedIdx + 100) ? "COPIADO!" : license.password}</span>
+                                      <LucideCopy size={9} className="opacity-50 shrink-0" />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <a
+                                  href="/nexus360"
+                                  className="mt-2 w-full py-2 nm-button text-[#38bdf8] hover:text-[#eaeff5] text-[7.5px] font-mono font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all rounded-xl border border-[#38bdf8]/10"
+                                >
+                                  <LucideGlobe size={10} /> Entrar no Painel Web
+                                </a>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {(!customerData.licenses || customerData.licenses.length === 0) && (!customerData.webLicenses || customerData.webLicenses.length === 0) && (
+                      <div className="py-4 text-center nm-inset rounded-2xl border border-white/5">
+                        <p className="text-[9px] text-[#94a3b8]/40 font-mono uppercase tracking-widest">Nenhuma licença vinculada a esta conta</p>
+                      </div>
+                    )}    </div>
                     </div>
                   </div>
                 </div>
@@ -885,27 +962,275 @@ export default function ClientPanel() {
 
           {/* ── LICENÇAS ── */}
           {activeTab === 'licencas' && (
-            <div className="nm-flat p-8 max-w-2xl animate-in fade-in duration-300">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 nm-inset flex items-center justify-center text-[#38bdf8]">
-                  <LucideKey size={20} />
-                </div>
+            <div className="space-y-6 max-w-4xl animate-in fade-in duration-300">
+              <div className="nm-flat p-6 border border-[#38bdf8]/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xs font-mono font-black uppercase text-[#eaeff5]">{customerData.plan}</h3>
-                  <p className="text-[9px] text-[#94a3b8] font-mono tracking-widest">{customerData.licenseKey}</p>
+                  <h3 className="text-xs font-mono font-black uppercase tracking-widest text-[#eaeff5]">Gerenciamento de Licenças</h3>
+                  <p className="text-[9px] text-[#94a3b8] mt-0.5 uppercase tracking-widest font-mono">Consulte suas chaves de acesso, credenciais web e tempos de expiração</p>
                 </div>
-                <span className="ml-auto px-3.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-mono font-black uppercase tracking-widest rounded-lg">Ativa</span>
+                <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 px-3 py-1.5 border border-emerald-500/10 rounded-xl text-[8px] font-mono font-black uppercase tracking-widest">
+                  <LucideShield size={12} className="animate-pulse" /> Servidores Seguros e Ativos
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { label: "Expira em", value: new Date(customerData.expiresAt).toLocaleDateString("pt-BR") },
-                  { label: "Chips Ativos", value: customerData.activeChips },
-                ].map(item => (
-                  <div key={item.label} className="nm-inset p-4">
-                    <p className="text-[9px] text-[#94a3b8] font-mono uppercase tracking-widest mb-1.5">{item.label}</p>
-                    <p className="text-xs font-mono font-black text-[#eaeff5]">{item.value}</p>
-                  </div>
-                ))}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Desktop Licenses Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[9px] font-mono font-black text-[#94a3b8] uppercase tracking-widest px-1">Licenças Desktop (Aplicativo PC)</h4>
+                  {(!customerData.licenses || customerData.licenses.length === 0) ? (
+                    <div className="nm-inset p-8 text-center text-[#94a3b8]/40 text-[9px] font-mono uppercase tracking-widest">
+                      Nenhuma licença Desktop ativa
+                    </div>
+                  ) : (
+                    customerData.licenses.map((lic: any, idx: number) => {
+                      const isCopied = copiedKeyIndex === idx;
+                      const isEditing = editingLicenseId === lic.id;
+                      const expired = lic.expiresAt && new Date(lic.expiresAt) < new Date();
+                      
+                      return (
+                        <div key={lic.id || idx} className="nm-flat p-5 border border-purple-500/5 hover:border-purple-500/20 transition-all duration-300 relative group">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <LucideMonitor size={14} className="text-purple-400" />
+                              <span className="text-[8px] font-mono font-black uppercase text-[#94a3b8]">LICENÇA DESKTOP #{idx + 1}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 border rounded text-[7.5px] font-mono font-black tracking-widest uppercase ${
+                              !lic.isActive ? "bg-rose-500/5 text-rose-400 border-rose-500/10" :
+                              expired ? "bg-amber-500/5 text-amber-400 border-amber-500/10 animate-pulse" :
+                              "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
+                            }`}>
+                              {!lic.isActive ? "INATIVA" : expired ? "EXPIRADA" : "ATIVA"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3 font-mono text-[9px]">
+                            {/* Nickname / Apelido */}
+                            <div className="flex justify-between items-center bg-[#191b20]/40 px-3 py-2 rounded-xl">
+                              <span className="text-[#94a3b8]/50 uppercase tracking-widest text-[8px]">Apelido</span>
+                              {isEditing ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    value={tempNickname}
+                                    onChange={(e) => setTempNickname(e.target.value)}
+                                    className="bg-[#14161a] border border-[#38bdf8]/30 rounded-lg px-2 py-0.5 text-[9px] text-[#eaeff5] w-28 focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
+                                    placeholder="Apelido..."
+                                    maxLength={20}
+                                    autoFocus
+                                    onKeyDown={async (e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (updatingNickname) return;
+                                        setUpdatingNickname(true);
+                                        try {
+                                          const res = await fetch(`/api/customers/licenses/${lic.id}`, {
+                                            method: "PUT",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ label: tempNickname })
+                                          });
+                                          if (res.ok) {
+                                            setCustomerData((prev: any) => {
+                                              const updated = prev.licenses.map((l: any) =>
+                                                l.id === lic.id ? { ...l, label: tempNickname } : l
+                                              );
+                                              return { ...prev, licenses: updated };
+                                            });
+                                            setEditingLicenseId(null);
+                                          }
+                                        } catch (err) {
+                                          console.error(err);
+                                        } finally {
+                                          setUpdatingNickname(false);
+                                        }
+                                      } else if (e.key === 'Escape') {
+                                        setEditingLicenseId(null);
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={async () => {
+                                      if (updatingNickname) return;
+                                      setUpdatingNickname(true);
+                                      try {
+                                        const res = await fetch(`/api/customers/licenses/${lic.id}`, {
+                                          method: "PUT",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ label: tempNickname })
+                                        });
+                                        if (res.ok) {
+                                          setCustomerData((prev: any) => {
+                                            const updated = prev.licenses.map((l: any) =>
+                                              l.id === lic.id ? { ...l, label: tempNickname } : l
+                                            );
+                                            return { ...prev, licenses: updated };
+                                          });
+                                          setEditingLicenseId(null);
+                                        }
+                                      } catch (err) {
+                                        console.error(err);
+                                      } finally {
+                                        setUpdatingNickname(false);
+                                      }
+                                    }}
+                                    className="text-emerald-400 text-[8px] font-black uppercase"
+                                  >
+                                    [OK]
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[#eaeff5] font-black uppercase">{lic.label || "NENHUM APELIDO"}</span>
+                                  <button
+                                    onClick={() => {
+                                      setEditingLicenseId(lic.id);
+                                      setTempNickname(lic.label || "");
+                                    }}
+                                    className="text-[#94a3b8] hover:text-[#38bdf8] transition-colors"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Chave de acesso */}
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[#94a3b8]/50 uppercase tracking-widest text-[8px]">Chave de Acesso</span>
+                              <div
+                                onClick={() => {
+                                  if (lic.key) {
+                                    navigator.clipboard.writeText(lic.key);
+                                    setCopiedKeyIndex(idx);
+                                    setTimeout(() => setCopiedKeyIndex(null), 2000);
+                                  }
+                                }}
+                                className="nm-inset px-3 py-2 cursor-pointer rounded-xl flex items-center justify-between text-[#eaeff5] hover:text-[#38bdf8] transition-all"
+                              >
+                                <span className="font-mono text-[9px] md:text-[10.5px] font-black tracking-wider truncate mr-2 uppercase">
+                                  {isCopied ? "COPIADA!" : lic.key}
+                                </span>
+                                <LucideCopy size={10} className="shrink-0 opacity-60" />
+                              </div>
+                            </div>
+
+                            {/* Detalhes de Expiração & PC */}
+                            <div className="grid grid-cols-2 gap-3 pt-1">
+                              <div className="bg-[#191b20]/30 px-3 py-2 rounded-xl">
+                                <p className="text-[#94a3b8]/40 uppercase tracking-widest text-[7.5px] mb-0.5">Expira em</p>
+                                <p className="text-[#eaeff5] font-black font-mono">{lic.expiresAt ? new Date(lic.expiresAt).toLocaleDateString("pt-BR") : "ILIMITADO"}</p>
+                              </div>
+                              <div className="bg-[#191b20]/30 px-3 py-2 rounded-xl">
+                                <p className="text-[#94a3b8]/40 uppercase tracking-widest text-[7.5px] mb-0.5">Dispositivo</p>
+                                <p className="text-[#eaeff5] font-black font-mono truncate uppercase" title={lic.machineId}>
+                                  {lic.machineId ? `VINCULADO` : "LIVRE"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Web Licenses Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[9px] font-mono font-black text-[#94a3b8] uppercase tracking-widest px-1">Licenças Web (Painel Online)</h4>
+                  {(!customerData.webLicenses || customerData.webLicenses.length === 0) ? (
+                    <div className="nm-inset p-8 text-center text-[#94a3b8]/40 text-[9px] font-mono uppercase tracking-widest">
+                      Nenhuma licença Web ativa
+                    </div>
+                  ) : (
+                    customerData.webLicenses.map((lic: any, idx: number) => {
+                      const webCopiedIdx = 1000 + idx;
+                      const isCopied = copiedKeyIndex === webCopiedIdx;
+                      const expired = lic.expiresAt && new Date(lic.expiresAt) < new Date();
+                      
+                      return (
+                        <div key={lic.id || idx} className="nm-flat p-5 border border-emerald-500/5 hover:border-emerald-500/20 transition-all duration-300 relative group">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <LucideGlobe size={14} className="text-emerald-400" />
+                              <span className="text-[8px] font-mono font-black uppercase text-[#94a3b8]">LICENÇA WEB #{idx + 1}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 border rounded text-[7.5px] font-mono font-black tracking-widest uppercase ${
+                              !lic.isActive ? "bg-rose-500/5 text-rose-400 border-rose-500/10" :
+                              expired ? "bg-amber-500/5 text-amber-400 border-amber-500/10 animate-pulse" :
+                              "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
+                            }`}>
+                              {!lic.isActive ? "INATIVA" : expired ? "EXPIRADA" : "ATIVA"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3 font-mono text-[9px]">
+                            {/* Nome / Identificador */}
+                            <div className="flex justify-between items-center bg-[#191b20]/40 px-3 py-2 rounded-xl">
+                              <span className="text-[#94a3b8]/50 uppercase tracking-widest text-[8px]">Plano</span>
+                              <span className="text-[#eaeff5] font-black uppercase">{lic.plan || "STANDARD"}</span>
+                            </div>
+
+                            {/* Usuário e Senha de Acesso */}
+                            <div className="space-y-2">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[#94a3b8]/50 uppercase tracking-widest text-[8px]">Usuário (Username)</span>
+                                <div
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(lic.username);
+                                    setCopiedKeyIndex(webCopiedIdx);
+                                    setTimeout(() => setCopiedKeyIndex(null), 2000);
+                                  }}
+                                  className="nm-inset px-3 py-2 cursor-pointer rounded-xl flex items-center justify-between text-[#eaeff5] hover:text-[#38bdf8] transition-all"
+                                >
+                                  <span className="font-mono text-[9.5px] font-black tracking-wider truncate mr-2">
+                                    {isCopied ? "COPIADO!" : lic.username}
+                                  </span>
+                                  <LucideCopy size={10} className="shrink-0 opacity-60" />
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[#94a3b8]/50 uppercase tracking-widest text-[8px]">Senha (Password)</span>
+                                <div
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(lic.password);
+                                    setCopiedKeyIndex(webCopiedIdx + 500);
+                                    setTimeout(() => setCopiedKeyIndex(null), 2000);
+                                  }}
+                                  className="nm-inset px-3 py-2 cursor-pointer rounded-xl flex items-center justify-between text-[#eaeff5] hover:text-[#38bdf8] transition-all"
+                                >
+                                  <span className="font-mono text-[9.5px] font-black tracking-wider truncate mr-2">
+                                    {copiedKeyIndex === (webCopiedIdx + 500) ? "COPIADO!" : lic.password}
+                                  </span>
+                                  <LucideCopy size={10} className="shrink-0 opacity-60" />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Detalhes de Expiração & Chips */}
+                            <div className="grid grid-cols-2 gap-3 pt-1">
+                              <div className="bg-[#191b20]/30 px-3 py-2 rounded-xl">
+                                <p className="text-[#94a3b8]/40 uppercase tracking-widest text-[7.5px] mb-0.5">Expira em</p>
+                                <p className="text-[#eaeff5] font-black font-mono">{lic.expiresAt ? new Date(lic.expiresAt).toLocaleDateString("pt-BR") : "ILIMITADO"}</p>
+                              </div>
+                              <div className="bg-[#191b20]/30 px-3 py-2 rounded-xl">
+                                <p className="text-[#94a3b8]/40 uppercase tracking-widest text-[7.5px] mb-0.5">Chips Max</p>
+                                <p className="text-[#eaeff5] font-black font-mono">{lic.maxSessions || 1} CHIPS</p>
+                              </div>
+                            </div>
+
+                            {/* Botão Acessar Painel */}
+                            <a
+                              href="/nexus360"
+                              className="mt-2 w-full py-3 nm-button text-[#38bdf8] hover:text-[#eaeff5] text-[8px] font-mono font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xl border border-[#38bdf8]/10"
+                            >
+                              <LucideGlobe size={11} /> Acessar Painel Web
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 
 export async function POST(req: Request) {
@@ -65,7 +66,42 @@ export async function POST(req: Request) {
         }
       });
 
-      console.log(`Sucesso: Licença ${licenseKey} gerada para ${email}`);
+      // 4. Criar Usuário para Login no Sistema (Portal do Cliente)
+      const emailNormalized = email.toLowerCase().trim();
+      let user = await prisma.user.findUnique({
+        where: { username: emailNormalized }
+      });
+
+      const password = Math.random().toString(36).slice(-8);
+
+      if (!user) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = await prisma.user.create({
+          data: {
+            username: emailNormalized,
+            email: emailNormalized,
+            password: hashedPassword,
+            role: "CUSTOMER"
+          }
+        });
+      }
+
+      // Vincular o User ID ao Customer
+      await prisma.customer.update({
+        where: { id: customer.id },
+        data: { userId: user.id }
+      });
+
+      // Registrar no histórico do cliente (CRM) com a senha temporária gerada
+      await prisma.interactionLog.create({
+        data: {
+          customerId: customer.id,
+          type: "SYSTEM",
+          content: `Acesso ao portal ativado automaticamente (Cakto). Usuário: ${emailNormalized} | Senha temporária: ${password}`
+        }
+      });
+
+      console.log(`Sucesso: Licença ${licenseKey} gerada para ${emailNormalized} e acesso ao portal criado.`);
     }
 
     return NextResponse.json({ received: true });

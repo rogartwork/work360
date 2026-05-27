@@ -6,7 +6,8 @@ import {
   LucideFileText, LucideSearch, LucideUsers, LucideTag, LucideMapPin,
   LucideCalendar, LucideEdit, LucideList, LucideLayoutGrid,
   LucideMessageSquare, LucideSmartphone, LucideGlobe, LucideShield,
-  LucideTicket, LucideFilter, LucideTrash2
+  LucideTicket, LucideFilter, LucideTrash2,
+  LucideArrowUpDown, LucideChevronUp, LucideChevronDown
 } from "lucide-react";
 import CustomerProfile from "./CustomerProfile";
 
@@ -61,6 +62,21 @@ function LicenseBadge({ licenses, webLicenses }: { licenses: any[]; webLicenses:
   return <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20">Expirada</span>;
 }
 
+function getLicenseSortValue(customer: Customer) {
+  const all = [...(customer.licenses ?? []), ...(customer.webLicenses ?? [])];
+  const active = all.filter(l => l.isActive && (!l.expiresAt || new Date(l.expiresAt) > new Date()));
+  const expiringSoon = all.filter(l => {
+    if (!l.expiresAt || !l.isActive) return false;
+    const days = Math.ceil((new Date(l.expiresAt).getTime() - Date.now()) / 86400000);
+    return days >= 0 && days <= 7;
+  });
+
+  if (all.length === 0) return 0; // Sem licença
+  if (expiringSoon.length > 0) return 2; // Expira em breve
+  if (active.length > 0) return 3; // Ativa
+  return 1; // Expirada
+}
+
 function fmtRelative(iso: string) {
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
@@ -84,6 +100,27 @@ export default function CRMView() {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+
+  const requestSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const renderSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <LucideArrowUpDown size={10} className="opacity-30 group-hover:opacity-100 transition-opacity ml-1" />;
+    }
+    if (sortConfig.direction === "asc") {
+      return <LucideChevronUp size={10} className="text-blue-400 ml-1" />;
+    }
+    return <LucideChevronDown size={10} className="text-blue-400 ml-1" />;
+  };
 
   const handleDeleteCustomer = async (id: string, name: string) => {
     if (!window.confirm(`Tem certeza que deseja enviar o cliente "${name}" para a lixeira? Ele ficará inativo e poderá ser recuperado nos próximos 60 dias.`)) {
@@ -217,6 +254,50 @@ export default function CRMView() {
     return matchSearch && matchStatus && matchSource;
   });
 
+  const sortedCustomers = [...filtered].sort((a, b) => {
+    if (!sortConfig) return 0;
+
+    let aValue: any = "";
+    let bValue: any = "";
+
+    switch (sortConfig.key) {
+      case "cliente":
+        aValue = a.name.toLowerCase();
+        bValue = b.name.toLowerCase();
+        break;
+      case "contato":
+        aValue = a.email.toLowerCase();
+        bValue = b.email.toLowerCase();
+        break;
+      case "canal":
+        aValue = (a.source ?? "MANUAL").toLowerCase();
+        bValue = (b.source ?? "MANUAL").toLowerCase();
+        break;
+      case "licenca":
+        aValue = getLicenseSortValue(a);
+        bValue = getLicenseSortValue(b);
+        break;
+      case "chamados":
+        aValue = (a.Ticket ?? []).filter(t => t.status !== "CLOSED").length;
+        bValue = (b.Ticket ?? []).filter(t => t.status !== "CLOSED").length;
+        break;
+      case "ultimo_contato":
+        aValue = new Date(a.interactionLogs?.[0]?.createdAt ?? a.updatedAt).getTime();
+        bValue = new Date(b.interactionLogs?.[0]?.createdAt ?? b.updatedAt).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) {
+      return sortConfig.direction === "asc" ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortConfig.direction === "asc" ? 1 : -1;
+    }
+    return 0;
+  });
+
   const statsData = [
     { label: "Total", val: customers.length, color: "text-blue-400", icon: LucideUsers },
     { label: "Ativos", val: customers.filter(c => c.status === "ACTIVE").length, color: "text-emerald-400", icon: LucideActivity },
@@ -327,13 +408,61 @@ export default function CRMView() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 border-b border-white/5">
-                  <th className="px-5 py-4">Cliente</th>
-                  <th className="px-4 py-4">Contato</th>
-                  <th className="px-4 py-4">Canal</th>
-                  <th className="px-4 py-4">Licença</th>
-                  <th className="px-4 py-4 text-center">Chamados</th>
-                  <th className="px-4 py-4">Último contato</th>
+                <tr className="bg-white/[0.02] text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500 border-b border-white/5 select-none">
+                  <th
+                    onClick={() => requestSort("cliente")}
+                    className="px-5 py-4 cursor-pointer hover:text-white transition-colors group"
+                  >
+                    <div className="flex items-center">
+                      Cliente
+                      {renderSortIcon("cliente")}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => requestSort("contato")}
+                    className="px-4 py-4 cursor-pointer hover:text-white transition-colors group"
+                  >
+                    <div className="flex items-center">
+                      Contato
+                      {renderSortIcon("contato")}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => requestSort("canal")}
+                    className="px-4 py-4 cursor-pointer hover:text-white transition-colors group"
+                  >
+                    <div className="flex items-center">
+                      Canal
+                      {renderSortIcon("canal")}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => requestSort("licenca")}
+                    className="px-4 py-4 cursor-pointer hover:text-white transition-colors group"
+                  >
+                    <div className="flex items-center">
+                      Licença
+                      {renderSortIcon("licenca")}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => requestSort("chamados")}
+                    className="px-4 py-4 text-center cursor-pointer hover:text-white transition-colors group"
+                  >
+                    <div className="flex items-center justify-center">
+                      Chamados
+                      {renderSortIcon("chamados")}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => requestSort("ultimo_contato")}
+                    className="px-4 py-4 cursor-pointer hover:text-white transition-colors group"
+                  >
+                    <div className="flex items-center">
+                      Último contato
+                      {renderSortIcon("ultimo_contato")}
+                    </div>
+                  </th>
                   <th className="px-4 py-4 text-right">Ações</th>
                 </tr>
               </thead>
@@ -343,11 +472,11 @@ export default function CRMView() {
                     <LucideActivity size={32} className="mx-auto text-slate-800 animate-spin mb-3" />
                     <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Carregando...</p>
                   </td></tr>
-                ) : filtered.length === 0 ? (
+                ) : sortedCustomers.length === 0 ? (
                   <tr><td colSpan={7} className="py-20 text-center">
                     <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Nenhum cliente encontrado</p>
                   </td></tr>
-                ) : filtered.map(customer => {
+                ) : sortedCustomers.map(customer => {
                   const openTickets = (customer.Ticket ?? []).filter(t => t.status !== "CLOSED").length;
                   const lastContact = customer.interactionLogs?.[0]?.createdAt ?? customer.updatedAt;
                   return (
@@ -448,11 +577,11 @@ export default function CRMView() {
               <h3 className={`text-[9px] font-black uppercase tracking-widest mb-4 flex items-center justify-between ${col.color}`}>
                 {col.title}
                 <span className="px-2 py-0.5 rounded-full bg-white/5 text-white text-[9px]">
-                  {filtered.filter(c => c.status === col.id).length}
+                  {sortedCustomers.filter(c => c.status === col.id).length}
                 </span>
               </h3>
               <div className="space-y-3">
-                {filtered.filter(c => c.status === col.id).map(c => (
+                {sortedCustomers.filter(c => c.status === col.id).map(c => (
                   <div key={c.id} draggable onDragStart={e => handleDragStart(e, c.id)} onClick={() => setProfileCustomerId(c.id)}
                     className="glass-panel p-4 rounded-2xl cursor-grab active:cursor-grabbing hover:border-blue-500/20 border border-white/[0.02] transition-all group">
                     <div className="flex justify-between items-start mb-2">
@@ -471,7 +600,7 @@ export default function CRMView() {
                     </div>
                   </div>
                 ))}
-                {filtered.filter(c => c.status === col.id).length === 0 && (
+                {sortedCustomers.filter(c => c.status === col.id).length === 0 && (
                   <div className="h-20 border-2 border-dashed border-white/10 rounded-2xl flex items-center justify-center text-[9px] font-bold text-slate-700 uppercase">Soltar aqui</div>
                 )}
               </div>
