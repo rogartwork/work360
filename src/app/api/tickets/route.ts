@@ -2,30 +2,36 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
-// Helper: encontra ou cria um Customer para o usuário logado
+// Helper: encontra o Customer vinculado ao usuário logado
 async function resolveCustomer(userId: string) {
+  // 1ª prioridade: link direto userId → Customer (portal de clientes)
+  const byUserId = await prisma.customer.findUnique({
+    where: { userId }
+  });
+  if (byUserId) return byUserId;
+
+  // 2ª prioridade: via WebLicense (legado – antes do portal unificado)
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return null;
 
-  // Tenta encontrar via WebLicense vinculada
-  let customer = await prisma.customer.findFirst({
+  const byWebLicense = await prisma.customer.findFirst({
     where: { webLicenses: { some: { username: user.username } } }
   });
+  if (byWebLicense) return byWebLicense;
 
-  // Fallback: encontra por email ou cria perfil automaticamente
-  if (!customer) {
-    const email = user.username.includes("@") ? user.username : `${user.username}@nexus.crm`;
-    customer = await prisma.customer.findFirst({ where: { email } });
-
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: { name: user.username, email, phone: "" }
-      });
-      console.log("[TICKETS API] Auto-criou Customer para:", user.username, customer.id);
-    }
+  // 3ª prioridade: por e-mail (legado)
+  if (user.username.includes("@")) {
+    const byEmail = await prisma.customer.findFirst({ where: { email: user.username } });
+    if (byEmail) return byEmail;
   }
 
-  return customer;
+  // Último recurso: criar perfil automaticamente para admins/usuários sem Customer
+  const email = user.username.includes("@") ? user.username : `${user.username}@nexus.crm`;
+  const created = await prisma.customer.create({
+    data: { name: user.username, email, phone: "" }
+  });
+  console.log("[TICKETS API] Auto-criou Customer para:", user.username, created.id);
+  return created;
 }
 
 // GET: Lista os tickets do usuário logado

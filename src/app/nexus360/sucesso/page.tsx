@@ -86,7 +86,7 @@ export default function SucessoPage() {
 
         <div className="mt-10 flex items-center justify-center gap-2 font-mono text-[9px] text-slate-600 font-bold uppercase tracking-widest">
           <img src="/xnexus.png" alt="Nexus 360 Logo" className="h-6 w-auto object-contain opacity-40" />
-          <span>SYS_VAL::v1.2.0</span>
+          <span>SYS_VAL::v1.2.1</span>
         </div>
       </div>
     </div>

@@ -87,7 +87,7 @@ export default function AtualizacoesPage() {
                         <div className="w-2.5 h-2.5 bg-[#38bdf8] rounded-full animate-pulse"></div>
                      </div>
                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-8 nm-flat relative group">
-                        <div className="absolute top-4 right-4 font-mono text-[8px] text-[#38bdf8] font-bold">N360D::v1.2.0</div>
+                        <div className="absolute top-4 right-4 font-mono text-[8px] text-[#38bdf8] font-bold">N360D::v1.2.1</div>
                         <div className="flex flex-col mb-4">
                            <span className="text-[#38bdf8] font-mono font-bold uppercase tracking-widest text-[10px] italic mb-2">Versão Atual</span>
                            <h2 className="text-2xl font-black uppercase italic tracking-tighter text-[#eaeff5]">Nexus360 Ecosystem</h2>
