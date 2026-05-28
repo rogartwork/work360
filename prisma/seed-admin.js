@@ -38,38 +38,82 @@ async function main() {
     }
   });
 
-  const affiliateData = await prisma.affiliate.upsert({
-    where: { userId: affiliateUser.id },
-    update: {},
-    create: {
-      userId: affiliateUser.id,
-      referralCode: 'NEXUS-TOP-SALE',
-      commission: 0.15 // 15% para este vendedor
+  let affiliateData = await prisma.affiliate.findFirst({
+    where: {
+      OR: [
+        { userId: affiliateUser.id },
+        { referralCode: 'NEXUS-TOP-SALE' }
+      ]
     }
   });
+
+  if (affiliateData) {
+    affiliateData = await prisma.affiliate.update({
+      where: { id: affiliateData.id },
+      data: {
+        userId: affiliateUser.id,
+        referralCode: 'NEXUS-TOP-SALE',
+        commission: 0.15
+      }
+    });
+  } else {
+    affiliateData = await prisma.affiliate.create({
+      data: {
+        userId: affiliateUser.id,
+        referralCode: 'NEXUS-TOP-SALE',
+        commission: 0.15
+      }
+    });
+  }
 
   console.log('✅ Afiliado de teste criado:', affiliateUsername);
 
-  // 3. Criar um Cliente de Teste vinculado ao Afiliado
-  const customer = await prisma.customer.upsert({
-    where: { email: 'cliente@exemplo.com' },
-    update: {},
-    create: {
-      name: 'Cliente Exemplo Nexus',
-      email: 'cliente@exemplo.com',
-      phone: '5511999999999',
-      cpfCnpj: '123.456.789-00',
-      status: 'ACTIVE',
-      affiliateId: affiliateData.id
+  // 3. Criar um Cliente de Teste vinculado ao Afiliado (evitando conflito de cpfCnpj único)
+  let customer = await prisma.customer.findFirst({
+    where: {
+      OR: [
+        { email: 'cliente@exemplo.com' },
+        { cpfCnpj: '123.456.789-00' }
+      ]
     }
   });
+
+  if (customer) {
+    customer = await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        name: 'Cliente Exemplo Nexus',
+        email: 'cliente@exemplo.com',
+        phone: '5511999999999',
+        cpfCnpj: '123.456.789-00',
+        status: 'ACTIVE',
+        affiliateId: affiliateData.id
+      }
+    });
+  } else {
+    customer = await prisma.customer.create({
+      data: {
+        name: 'Cliente Exemplo Nexus',
+        email: 'cliente@exemplo.com',
+        phone: '5511999999999',
+        cpfCnpj: '123.456.789-00',
+        status: 'ACTIVE',
+        affiliateId: affiliateData.id
+      }
+    });
+  }
 
   console.log('✅ Cliente de teste criado:', customer.name);
 
   // 4. Criar uma Licença para o Cliente
   await prisma.desktopLicense.upsert({
     where: { key: 'NEXUS-TEST-XXXX-XXXX' },
-    update: {},
+    update: {
+      customerId: customer.id,
+      plan: 'UNLIMITED',
+      isActive: true,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    },
     create: {
       key: 'NEXUS-TEST-XXXX-XXXX',
       customerId: customer.id,

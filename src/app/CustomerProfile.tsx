@@ -370,15 +370,15 @@ export default function CustomerProfile({ customerId, onClose }: CustomerProfile
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</label>
                     <select value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40">
-                      {["LEAD", "ACTIVE", "INACTIVE"].map(s => <option key={s} value={s}>{s}</option>)}
+                      className="w-full bg-[#0a0a0c] border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40">
+                      {["LEAD", "ACTIVE", "INACTIVE"].map(s => <option key={s} value={s} className="bg-[#0a0a0c] text-white">{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Etapa do Pipeline</label>
                     <select value={editForm.pipelineStage} onChange={e => setEditForm({ ...editForm, pipelineStage: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40">
-                      {STATUS_STAGES.map(s => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+                      className="w-full bg-[#0a0a0c] border border-white/10 rounded-xl px-4 py-2.5 text-[12px] text-white outline-none focus:border-blue-500/40">
+                      {STATUS_STAGES.map(s => <option key={s} value={s} className="bg-[#0a0a0c] text-white">{s.replace(/_/g, " ")}</option>)}
                     </select>
                   </div>
                   <div>
