@@ -43,21 +43,37 @@ export async function POST(req: Request) {
     },
   });
 
-  // 3️⃣ Upsert licença desktop (tabela desktopLicense)
-  const licenseKey = `NX360-${orderId}`; // chave simples baseada no orderId
-  await prisma.desktopLicense.upsert({
-    where: { key: licenseKey },
-    update: {
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      plan,
-    },
-    create: {
-      key: licenseKey,
-      customerId: customer.id,
-      plan,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
+  // 3️⃣ Criar ou atualizar licença desktop (tabela desktopLicense)
+  let license = await prisma.desktopLicense.findFirst({
+    where: { customerId: customer.id },
   });
+
+  let licenseKey = "";
+
+  if (license) {
+    // Atualiza a licença existente (renovação)
+    await prisma.desktopLicense.update({
+      where: { id: license.id },
+      data: {
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        plan,
+      },
+    });
+    licenseKey = license.key;
+  } else {
+    // Gera uma nova licença no padrão NEXUS-XXXX-XXXX-XXXX
+    const genSegment = () => Math.random().toString(36).slice(-4).padStart(4, '0').toUpperCase();
+    licenseKey = `NEXUS-${genSegment()}-${genSegment()}-${genSegment()}`;
+    
+    await prisma.desktopLicense.create({
+      data: {
+        key: licenseKey,
+        customerId: customer.id,
+        plan,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
 
   // 4️⃣ Criar usuário no portal (se ainda não existir)
   const normalized = userEmail.toLowerCase().trim();
