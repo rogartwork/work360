@@ -1,0 +1,94 @@
+// src/app/api/webhooks/atomo/route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+
+/**
+ * Webhook da Atomo Pay – sem validação de assinatura.
+ * Recebe notificações de pagamento e cria/atualiza licença e usuário.
+ */
+export async function POST(req: Request) {
+  // 1️⃣ Ler o corpo da request como texto (necessário para o JSON)
+  const rawBody = await req.text();
+  let payload: any;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    // Resposta genérica – evitamos detalhar o erro
+    return NextResponse.json({ received: true });
+  }
+
+  // Campos esperados (ajuste se a Atomo Pay usar nomes diferentes)
+  const { orderId, sku, userEmail, amount, status, plan = "PADRAO", userName } = payload;
+
+  // Verificar campos essenciais
+  if (!orderId || !userEmail) {
+    return NextResponse.json({ received: true });
+  }
+
+  // Processar somente pagamentos aprovados
+  const approved = ["approved", "paid", "completed"].includes(String(status).toLowerCase());
+  if (!approved) {
+    return NextResponse.json({ received: true });
+  }
+
+  // 2️⃣ Upsert cliente (CRM)
+  const customer = await prisma.customer.upsert({
+    where: { email: userEmail },
+    update: { status: "ACTIVE" },
+    create: {
+      email: userEmail,
+      name: userName ?? "Cliente Nexus",
+      status: "ACTIVE",
+    },
+  });
+
+  // 3️⃣ Upsert licença desktop (tabela desktopLicense)
+  const licenseKey = `NX360-${orderId}`; // chave simples baseada no orderId
+  await prisma.desktopLicense.upsert({
+    where: { key: licenseKey },
+    update: {
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      plan,
+    },
+    create: {
+      key: licenseKey,
+      customerId: customer.id,
+      plan,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  // 4️⃣ Criar usuário no portal (se ainda não existir)
+  const normalized = userEmail.toLowerCase().trim();
+  let user = await prisma.user.findUnique({ where: { username: normalized } });
+  if (!user) {
+    const tempPassword = Math.random().toString(36).slice(-8);
+    const hashed = await bcrypt.hash(tempPassword, 10);
+    user = await prisma.user.create({
+      data: {
+        username: normalized,
+        email: normalized,
+        password: hashed,
+        role: "CUSTOMER",
+      },
+    });
+    // Log de senha temporária para que o admin possa comunicar ao cliente
+    await prisma.interactionLog.create({
+      data: {
+        customerId: customer.id,
+        type: "SYSTEM",
+        content: `Usuário criado via webhook Atomo. Usuário: ${normalized} | Senha temporária: ${tempPassword}`,
+      },
+    });
+  }
+
+  // 5️⃣ Vincular usuário ao cliente
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: { userId: user.id },
+  });
+
+  console.log(`[ATOMO WEBHOOK] Licença ${licenseKey} criada/atualizada para ${userEmail}`);
+  return NextResponse.json({ received: true });
+}
