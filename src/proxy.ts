@@ -15,7 +15,8 @@ export function proxy(req: NextRequest) {
     pathname.endsWith(".jpg") ||
     pathname.endsWith(".svg") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/license")
+    pathname.startsWith("/api/license") ||
+    pathname.startsWith("/api/webhooks")
   ) {
     return NextResponse.next();
   }
