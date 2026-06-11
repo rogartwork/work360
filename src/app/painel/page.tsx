@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 
 export default function ClientPanel() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'painel' | 'licencas' | 'suporte'>('painel');
+  const [activeTab, setActiveTab] = useState<'painel' | 'licencas' | 'suporte' | 'perfil'>('painel');
   const [loading, setLoading] = useState(true);
   const [customerData, setCustomerData] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
@@ -24,6 +24,9 @@ export default function ClientPanel() {
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [replyMessage, setReplyMessage] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchTickets = async () => {
     try {
@@ -117,6 +120,33 @@ export default function ClientPanel() {
     finally { setSendingReply(false); }
   };
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setProfileMessage("A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+    setProfileLoading(true);
+    setProfileMessage("");
+    try {
+      const res = await fetch("/api/customers/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (res.ok) {
+        setProfileMessage("Senha atualizada com sucesso!");
+        setNewPassword("");
+      } else {
+        setProfileMessage("Erro ao atualizar a senha.");
+      }
+    } catch (err) {
+      setProfileMessage("Erro de conexão.");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const now = new Date();
@@ -157,6 +187,7 @@ export default function ClientPanel() {
             { id: 'painel', label: 'Dashboard', icon: LucideLayoutDashboard },
             { id: 'licencas', label: 'Minhas Licenças', icon: LucideKey },
             { id: 'suporte', label: 'Central de Suporte', icon: LucideMessageSquare },
+            { id: 'perfil', label: 'Meu Perfil', icon: LucideUser },
           ] as const).map(item => (
             <button
               key={item.id}
@@ -184,10 +215,10 @@ export default function ClientPanel() {
         <header className="sticky top-0 z-40 bg-[#050505]/80 backdrop-blur-xl border-b border-white/5 px-8 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white">
-              {activeTab === 'painel' ? 'Dashboard' : activeTab === 'licencas' ? 'Minhas Licenças' : 'Central de Suporte'}
+              {activeTab === 'painel' ? 'Dashboard' : activeTab === 'licencas' ? 'Minhas Licenças' : activeTab === 'perfil' ? 'Meu Perfil' : 'Central de Suporte'}
             </h1>
             <p className="text-[9px] text-slate-600 uppercase tracking-widest mt-0.5">
-              {activeTab === 'suporte' ? 'Gerencie seus chamados de suporte' : 'Plataforma Nexus 360'}
+              {activeTab === 'suporte' ? 'Gerencie seus chamados de suporte' : activeTab === 'perfil' ? 'Altere sua senha de acesso' : 'Plataforma Nexus 360'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -411,6 +442,56 @@ export default function ClientPanel() {
                     <p className="text-sm font-black text-white">{item.value}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── MEU PERFIL ── */}
+          {activeTab === 'perfil' && (
+            <div className="max-w-xl mx-auto bg-[#0a0a0c] rounded-xl border border-white/5 overflow-hidden animate-in fade-in duration-300">
+              <div className="p-6 border-b border-white/5">
+                <h2 className="text-sm font-black uppercase tracking-widest text-white">Segurança e Acesso</h2>
+                <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-widest">Altere sua senha padrão por uma senha segura</p>
+              </div>
+              
+              <div className="p-6">
+                <form onSubmit={handleUpdateProfile} className="space-y-5">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">E-mail (Login)</label>
+                    <input 
+                      type="text" 
+                      disabled 
+                      value={customerData.email} 
+                      className="w-full bg-white/[0.02] border border-white/5 rounded-lg px-4 py-3 text-sm text-slate-400 cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Nova Senha</label>
+                    <input 
+                      type="password" 
+                      required 
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Digite a nova senha (mínimo 6 caracteres)"
+                      className="w-full bg-white/[0.04] border border-white/10 focus:border-indigo-500/50 rounded-lg px-4 py-3 text-sm text-white outline-none transition-all placeholder:text-slate-600"
+                    />
+                  </div>
+                  
+                  {profileMessage && (
+                    <div className={`p-3 rounded-lg text-[10px] font-bold uppercase tracking-widest ${profileMessage.includes("sucesso") ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
+                      {profileMessage}
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit" 
+                    disabled={profileLoading}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
+                    {profileLoading ? <LucideActivity size={15} className="animate-spin" /> : <LucideShieldCheck size={15} />}
+                    Salvar Nova Senha
+                  </button>
+                </form>
               </div>
             </div>
           )}

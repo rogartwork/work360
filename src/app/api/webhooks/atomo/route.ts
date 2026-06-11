@@ -79,7 +79,8 @@ export async function POST(req: Request) {
   const normalized = userEmail.toLowerCase().trim();
   let user = await prisma.user.findUnique({ where: { username: normalized } });
   if (!user) {
-    const tempPassword = Math.random().toString(36).slice(-8);
+    // Usar uma senha padrão temporária (ex: nexus123)
+    const tempPassword = "mudar123";
     const hashed = await bcrypt.hash(tempPassword, 10);
     user = await prisma.user.create({
       data: {
