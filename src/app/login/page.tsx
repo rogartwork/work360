@@ -36,7 +36,7 @@ export default function LoginPage() {
 
       if (res.ok) {
         if (data.role === 'CUSTOMER') {
-          router.push("/painel");
+          router.push("/portalcliente");
         } else {
           router.push("/");
         }
