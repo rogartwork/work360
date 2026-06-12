@@ -18,27 +18,50 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
-  // Campos esperados (ajuste se a Atomo Pay usar nomes diferentes)
-  const { orderId, sku, userEmail, amount, status, plan = "PADRAO", userName } = payload;
+  // Campos esperados (A Atomo Pay pode mandar com nomes diferentes)
+  const orderId = payload.orderId || payload.transaction?.id || payload.id || "manual_" + Date.now();
+  const userEmail = payload.userEmail || payload.email || payload.customer?.email || payload.client?.email;
+  const userName = payload.userName || payload.name || payload.customer?.name || payload.client?.name || "Cliente Nexus";
+  const status = payload.status || payload.payment_status || payload.transaction?.status || "approved";
+  const plan = payload.plan || payload.product_name || "PADRAO";
+  const amount = payload.amount || payload.value || 0;
+
+  // Registrar todo o webhook recebido no banco de dados para podermos debugar depois!
+  if (userEmail) {
+    try {
+      const customerForLog = await prisma.customer.findFirst({ where: { email: userEmail } });
+      if (customerForLog) {
+        await prisma.interactionLog.create({
+          data: {
+            customerId: customerForLog.id,
+            type: "SYSTEM",
+            content: `Webhook Atomo Recebido: ${rawBody}`
+          }
+        });
+      }
+    } catch(e) {}
+  }
 
   // Verificar campos essenciais
-  if (!orderId || !userEmail) {
+  if (!userEmail) {
+    console.error("[ATOMO WEBHOOK] Erro: Sem email na payload. Payload original:", rawBody);
     return NextResponse.json({ received: true });
   }
 
   // Processar somente pagamentos aprovados
-  const approved = ["approved", "paid", "completed"].includes(String(status).toLowerCase());
+  const approved = ["approved", "paid", "completed", "pago"].includes(String(status).toLowerCase());
   if (!approved) {
+    console.log("[ATOMO WEBHOOK] Pagamento não está como aprovado. Status atual:", status);
     return NextResponse.json({ received: true });
   }
 
   // 2️⃣ Upsert cliente (CRM)
   const customer = await prisma.customer.upsert({
     where: { email: userEmail },
-    update: { status: "ACTIVE" },
+    update: { status: "ACTIVE", name: userName },
     create: {
       email: userEmail,
-      name: userName ?? "Cliente Nexus",
+      name: userName,
       status: "ACTIVE",
     },
   });
